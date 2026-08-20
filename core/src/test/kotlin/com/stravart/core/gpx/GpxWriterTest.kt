@@ -96,7 +96,7 @@ class GpxWriterTest {
             fidelity = Fidelity(42.0, 130.0, 78),
             overlapRatio = 0.04,
             unfollowed = emptyList(),
-            diagnostics = RouteDiagnostics(points, points.size, "trekking", 0),
+            diagnostics = RouteDiagnostics(80, 80, "trekking", 0, 0),
             removedSpurs = 1,
             activity = ActivityType.BIKE,
             engineName = "BRouter",

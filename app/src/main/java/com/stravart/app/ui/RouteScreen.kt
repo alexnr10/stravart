@@ -621,7 +621,7 @@ private fun ResultCard(
             Text(
                 text = listOfNotNull(deviation, spurs, attempts, engine).joinToString(" · "),
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = MaterialTheme.colorScheme.onSecondaryContainer,
             )
 
             // Ce que le moteur a réellement fait. Un repli sur un autre profil ou sur
@@ -629,24 +629,29 @@ private fun ResultCard(
             // chercher pourquoi le parcours ne ressemble pas à ce qu'on attendait.
             val diagnostics = route.diagnostics
             val profile = diagnostics.profileUsed?.let { stringResource(R.string.result_profile, it) }
-            val waypoints = if (diagnostics.waypoints.size < diagnostics.requestedWaypoints) {
+            val waypoints = if (diagnostics.usedWaypoints < diagnostics.requestedWaypoints) {
                 stringResource(
                     R.string.result_waypoints_reduced,
-                    diagnostics.waypoints.size,
+                    diagnostics.usedWaypoints,
                     diagnostics.requestedWaypoints,
                 )
             } else {
-                stringResource(R.string.result_waypoints, diagnostics.waypoints.size)
+                stringResource(R.string.result_waypoints, diagnostics.usedWaypoints)
             }
             val relocated = if (diagnostics.relocatedWaypoints > 0) {
                 stringResource(R.string.result_relocated, diagnostics.relocatedWaypoints)
             } else {
                 null
             }
+            val discarded = if (diagnostics.discardedWaypoints > 0) {
+                stringResource(R.string.result_discarded, diagnostics.discardedWaypoints)
+            } else {
+                null
+            }
             Text(
-                text = listOfNotNull(profile, waypoints, relocated).joinToString(" · "),
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                text = listOfNotNull(profile, waypoints, relocated, discarded).joinToString(" · "),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSecondaryContainer,
             )
 
             if (route.unfollowed.isNotEmpty()) {

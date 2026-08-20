@@ -85,9 +85,15 @@ la même voie de contournement, et le tracé s'en va avec eux. En **ajouter** n'
 rien : les nouveaux se rattachent au même endroit. C'est mesuré : concentrer les
 points là où l'itinéraire dérive n'a rien donné du tout.
 
-Ce qui reste à essayer, c'est de les **déplacer**. Si l'itinéraire est parti trois
+Ce qui reste à essayer, c'est de les **déplacer**, ou de cesser de les imposer. Si l'itinéraire est parti trois
 cents mètres au sud, c'est que la voie qu'il a trouvée est au sud ; `WaypointRelocator`
 pousse alors le point d'autant vers le nord, pour que le moteur cherche de ce côté-là.
+Au-delà de 300 m d'écart, il ne déplace plus : il **écarte** le point. Un point tombé
+au milieu d'un fleuve n'est sur aucune voie ; le moteur le rattache tout de même à une
+berge, et ce point imposé décide alors de l'endroit où l'on traverse — parfois un pont
+bien plus loin que celui qui longeait la forme. Le retirer rend au moteur la liberté de
+traverser au moins cher, c'est-à-dire en général au plus près. Jamais deux points
+d'affilée, pour ne pas lui rendre trop de liberté d'un coup.
 Le pari peut échouer — la voie espérée n'existe pas toujours — aussi le résultat n'est
 retenu que s'il rapproche vraiment le tracé de la forme, sans allonger la distance ni
 ajouter de retour sur ses pas. Il ne coûte donc jamais qu'un appel réseau.

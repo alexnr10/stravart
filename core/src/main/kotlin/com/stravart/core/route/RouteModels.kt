@@ -112,14 +112,16 @@ data class GeneratedRoute(
  * parc qu'il voulait traverser.
  */
 data class RouteDiagnostics(
-    /** Points de passage réellement soumis au moteur, dans l'ordre. */
-    val waypoints: List<LatLon>,
-    /** Nombre demandé, avant tout repli du moteur. */
+    /** Nombre de points de passage visé, avant tout repli. */
     val requestedWaypoints: Int,
+    /** Nombre réellement routé par le moteur, replis compris. */
+    val usedWaypoints: Int,
     /** Profil de routage effectivement employé. */
     val profileUsed: String?,
     /** Points de passage replacés parce que le moteur ne les avait pas honorés. */
     val relocatedWaypoints: Int,
+    /** Points de passage écartés faute de voie praticable à proximité. */
+    val discardedWaypoints: Int,
 )
 
 /**

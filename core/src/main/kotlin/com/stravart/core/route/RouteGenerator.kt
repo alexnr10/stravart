@@ -122,6 +122,7 @@ class RouteGenerator(private val engine: RoutingEngine) {
 
         var result = best ?: throw (failure ?: RoutingException("Aucun itinéraire n'a pu être calculé."))
         var relocated = 0
+        var discarded = 0
 
         // Une fois la distance en place : les points de passage que le moteur n'a pas
         // honorés sont replacés de l'autre côté, là où se trouve peut-être la voie
@@ -138,7 +139,8 @@ class RouteGenerator(private val engine: RoutingEngine) {
                 val candidate = relocate(result, request) ?: return@repeat
                 if (improves(candidate.first, result, request)) {
                     result = candidate.first
-                    relocated += candidate.second
+                    relocated += candidate.second.movedCount
+                    discarded += candidate.second.droppedCount
                 }
             }
         }
@@ -165,10 +167,11 @@ class RouteGenerator(private val engine: RoutingEngine) {
             unfollowed = ShapeCoverage.analyse(result.ideal, result.routed.path.points).stretches,
             removedSpurs = result.routed.spurs,
             diagnostics = RouteDiagnostics(
-                waypoints = result.waypoints,
                 requestedWaypoints = budget,
+                usedWaypoints = result.routed.path.waypointsUsed ?: result.waypoints.size,
                 profileUsed = result.routed.path.profileUsed,
                 relocatedWaypoints = relocated,
+                discardedWaypoints = discarded,
             ),
             activity = request.activity,
             engineName = engine.displayName,
@@ -184,7 +187,10 @@ class RouteGenerator(private val engine: RoutingEngine) {
      * @return `null` si aucun point n'avait besoin d'être déplacé, ou si le moteur a
      *   refusé la nouvelle demande — auquel cas le tracé déjà obtenu reste valable.
      */
-    private fun relocate(current: Attempt, request: RouteRequest): Pair<Attempt, Int>? {
+    private fun relocate(
+        current: Attempt,
+        request: RouteRequest,
+    ): Pair<Attempt, WaypointRelocator.Relocation>? {
         val relocation = WaypointRelocator.relocate(
             waypoints = current.waypoints,
             route = current.routed.path.points,
@@ -203,7 +209,7 @@ class RouteGenerator(private val engine: RoutingEngine) {
             routed,
             error,
             current.attempt + 1,
-        ) to relocation.movedCount
+        ) to relocation
     }
 
     /**
@@ -242,8 +248,11 @@ class RouteGenerator(private val engine: RoutingEngine) {
         if (points.size < 2) return Cleaned(raw, spurs = 0)
         val elevations = raw.elevations?.let { trim.select(it) }
 
+        // `copy` et non un nouveau `RoutedPath` : le profil employé et le nombre de
+        // points réellement routés sont ce que le moteur a rapporté sur lui-même, et
+        // les reconstruire de zéro les effaçait silencieusement.
         return Cleaned(
-            RoutedPath(
+            raw.copy(
                 points = points,
                 distanceMeters = Geo.pathLength(points),
                 elevations = elevations,
