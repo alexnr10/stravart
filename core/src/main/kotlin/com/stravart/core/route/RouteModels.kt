@@ -21,6 +21,12 @@ data class RouteRequest(
     val toleranceRatio: Double = 0.03,
     /** Nombre maximal d'appels au moteur de routage pour ajuster la distance. */
     val maxAttempts: Int = 5,
+    /**
+     * Tentatives de replacement des points de passage que le moteur n'a pas honorés.
+     * Chacune coûte un appel réseau et n'est conservée que si elle rapproche
+     * réellement le tracé de la forme.
+     */
+    val relocationPasses: Int = 1,
     /** Espacement visé entre points de passage ; `null` = valeur par défaut de l'activité. */
     val waypointSpacingMeters: Double? = null,
     /**
@@ -35,6 +41,7 @@ data class RouteRequest(
         require(distanceMeters >= 200) { "la distance doit valoir au moins 200 m" }
         require(toleranceRatio > 0) { "la tolérance doit être positive" }
         require(maxAttempts >= 1) { "il faut au moins une tentative" }
+        require(relocationPasses >= 0) { "le nombre de replacements ne peut être négatif" }
         require(maxOverlapRatio in 0.0..1.0) { "la part d'aller-retour tolérée doit être une fraction" }
     }
 
@@ -73,6 +80,8 @@ data class GeneratedRoute(
      * que de laisser croire à un défaut de calcul.
      */
     val unfollowed: List<UnfollowedStretch>,
+    /** De quoi comprendre ce que le moteur a réellement fait. */
+    val diagnostics: RouteDiagnostics,
     /** Nombre d'allers-retours retirés du tracé rendu par le moteur. */
     val removedSpurs: Int,
     val activity: ActivityType,
@@ -93,6 +102,25 @@ data class GeneratedRoute(
             return (unfollowed.sumOf { it.lengthMeters } / total).coerceIn(0.0, 1.0)
         }
 }
+
+/**
+ * Ce que le moteur a réellement fait, par opposition à ce qu'on lui a demandé.
+ *
+ * Un repli — moins de points de passage qu'espéré, un autre profil que celui de
+ * l'activité — change le résultat du tout au tout. Le laisser invisible, c'est
+ * condamner l'utilisateur à chercher pourquoi son parcours de course contourne le
+ * parc qu'il voulait traverser.
+ */
+data class RouteDiagnostics(
+    /** Points de passage réellement soumis au moteur, dans l'ordre. */
+    val waypoints: List<LatLon>,
+    /** Nombre demandé, avant tout repli du moteur. */
+    val requestedWaypoints: Int,
+    /** Profil de routage effectivement employé. */
+    val profileUsed: String?,
+    /** Points de passage replacés parce que le moteur ne les avait pas honorés. */
+    val relocatedWaypoints: Int,
+)
 
 /**
  * Levée quand le réseau de rues autour du départ ne permet pas de boucler sans

@@ -7,6 +7,7 @@ import com.stravart.core.routing.RoutingEngine
 import com.stravart.core.routing.RoutingException
 import com.stravart.core.shape.ShapeProjector
 import kotlin.math.abs
+import kotlin.math.max
 import kotlin.math.roundToInt
 
 /**
@@ -90,7 +91,7 @@ class RouteGenerator(private val engine: RoutingEngine) {
 
             val error = abs(routed.path.distanceMeters - target) / target
             if (best == null || error < best.error) {
-                best = Attempt(ideal, routed, error, attempt)
+                best = Attempt(ideal, waypoints, routed, error, attempt)
             }
             if (error <= request.toleranceRatio) break
 
@@ -119,7 +120,28 @@ class RouteGenerator(private val engine: RoutingEngine) {
             scale = clamped
         }
 
-        val result = best ?: throw (failure ?: RoutingException("Aucun itinéraire n'a pu être calculé."))
+        var result = best ?: throw (failure ?: RoutingException("Aucun itinéraire n'a pu être calculé."))
+        var relocated = 0
+
+        // Une fois la distance en place : les points de passage que le moteur n'a pas
+        // honorés sont replacés de l'autre côté, là où se trouve peut-être la voie
+        // qui longeait vraiment la forme.
+        if (engine.snapsToRoads) {
+            repeat(request.relocationPasses) { pass ->
+                onProgress(
+                    RouteProgress(
+                        result.attempt + pass + 1,
+                        maxAttempts + request.relocationPasses,
+                        "Recalage sur la forme…",
+                    ),
+                )
+                val candidate = relocate(result, request) ?: return@repeat
+                if (improves(candidate.first, result, request)) {
+                    result = candidate.first
+                    relocated += candidate.second
+                }
+            }
+        }
 
         // Le nettoyage a retiré les allers-retours évitables ; ce qu'il reste de
         // parcouru deux fois est imposé par le réseau lui-même.
@@ -142,12 +164,66 @@ class RouteGenerator(private val engine: RoutingEngine) {
             overlapRatio = overlap,
             unfollowed = ShapeCoverage.analyse(result.ideal, result.routed.path.points).stretches,
             removedSpurs = result.routed.spurs,
+            diagnostics = RouteDiagnostics(
+                waypoints = result.waypoints,
+                requestedWaypoints = budget,
+                profileUsed = result.routed.path.profileUsed,
+                relocatedWaypoints = relocated,
+            ),
             activity = request.activity,
             engineName = engine.displayName,
             snappedToRoads = engine.snapsToRoads,
             attempts = result.attempt,
             name = request.name ?: defaultName(request.distanceMeters),
         )
+    }
+
+    /**
+     * Replace les points de passage restés en travers, puis redemande un itinéraire.
+     *
+     * @return `null` si aucun point n'avait besoin d'être déplacé, ou si le moteur a
+     *   refusé la nouvelle demande — auquel cas le tracé déjà obtenu reste valable.
+     */
+    private fun relocate(current: Attempt, request: RouteRequest): Pair<Attempt, Int>? {
+        val relocation = WaypointRelocator.relocate(
+            waypoints = current.waypoints,
+            route = current.routed.path.points,
+        ) ?: return null
+
+        val raw = try {
+            engine.route(relocation.waypoints, request.activity)
+        } catch (e: RoutingException) {
+            return null
+        }
+        val routed = clean(raw)
+        val error = abs(routed.path.distanceMeters - request.distanceMeters) / request.distanceMeters
+        return Attempt(
+            current.ideal,
+            relocation.waypoints,
+            routed,
+            error,
+            current.attempt + 1,
+        ) to relocation.movedCount
+    }
+
+    /**
+     * Un tracé replacé n'est retenu que s'il colle mieux à la forme *sans* rien
+     * abîmer d'autre : ni la distance demandée, ni la continuité du parcours.
+     *
+     * Déplacer un point de passage est un pari — la voie espérée de l'autre côté
+     * n'existe pas toujours. Cette garde fait que le pari ne coûte jamais rien
+     * d'autre qu'un appel réseau.
+     */
+    private fun improves(candidate: Attempt, current: Attempt, request: RouteRequest): Boolean {
+        if (candidate.error > max(request.toleranceRatio, current.error)) return false
+
+        val before = ShapeFidelity.evaluate(current.ideal, current.routed.path.points)
+        val after = ShapeFidelity.evaluate(candidate.ideal, candidate.routed.path.points)
+        if (after.meanDeviationMeters >= before.meanDeviationMeters) return false
+
+        val overlapBefore = RouteOverlap.measure(current.routed.path.points)
+        val overlapAfter = RouteOverlap.measure(candidate.routed.path.points)
+        return overlapAfter <= overlapBefore + OVERLAP_SLACK
     }
 
     /**
@@ -209,8 +285,14 @@ class RouteGenerator(private val engine: RoutingEngine) {
 
     private class Attempt(
         val ideal: List<LatLon>,
+        val waypoints: List<LatLon>,
         val routed: Cleaned,
         val error: Double,
         val attempt: Int,
     )
+
+    private companion object {
+        /** Marge tolérée sur le retour sur ses pas, pour ne pas rejeter du bruit. */
+        const val OVERLAP_SLACK = 0.01
+    }
 }

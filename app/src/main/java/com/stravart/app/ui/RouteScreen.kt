@@ -624,6 +624,31 @@ private fun ResultCard(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
 
+            // Ce que le moteur a réellement fait. Un repli sur un autre profil ou sur
+            // moins de points change tout le résultat : le taire condamnerait à
+            // chercher pourquoi le parcours ne ressemble pas à ce qu'on attendait.
+            val diagnostics = route.diagnostics
+            val profile = diagnostics.profileUsed?.let { stringResource(R.string.result_profile, it) }
+            val waypoints = if (diagnostics.waypoints.size < diagnostics.requestedWaypoints) {
+                stringResource(
+                    R.string.result_waypoints_reduced,
+                    diagnostics.waypoints.size,
+                    diagnostics.requestedWaypoints,
+                )
+            } else {
+                stringResource(R.string.result_waypoints, diagnostics.waypoints.size)
+            }
+            val relocated = if (diagnostics.relocatedWaypoints > 0) {
+                stringResource(R.string.result_relocated, diagnostics.relocatedWaypoints)
+            } else {
+                null
+            }
+            Text(
+                text = listOfNotNull(profile, waypoints, relocated).joinToString(" · "),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+
             if (route.unfollowed.isNotEmpty()) {
                 Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                     Row(

@@ -73,7 +73,12 @@ class OsrmEngine(
 
         val distance = route["distance"]?.jsonPrimitive?.content?.toDoubleOrNull()
             ?: Geo.pathLength(points)
-        return RoutedPath(points = points, distanceMeters = distance)
+        return RoutedPath(
+            points = points,
+            distanceMeters = distance,
+            profileUsed = profile,
+            waypointsUsed = waypoints.size,
+        )
     }
 
     private fun format(value: Double) = String.format(Locale.ROOT, "%.6f", value)

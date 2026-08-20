@@ -70,60 +70,46 @@ de ce palier, c'est la maille du réseau qui limite, pas l'échantillonnage. On 
 pas passer plus près qu'à la rue la plus proche.
 
 Cela ne coûte d'ailleurs pas plus cher au serveur : découper en tronçons courts lui
-épargne les longues recherches de chemin. Le plafond de 150 points par requête laisse
-un parcours de 18 km atteindre cet espacement. Si une requête est malgré tout refusée,
-`BRouterEngine` réessaie avec deux fois moins de points — moins fidèle, mais un
-parcours plutôt qu'un échec.
+épargne les longues recherches de chemin. Le plafond est de 80 points par requête. Si
+une requête est refusée, `BRouterEngine` réessaie avec deux fois moins de points —
+moins fidèle, mais un parcours plutôt qu'un échec. **Ce repli est affiché** : un
+essai à 150 points s'est soldé par une dégradation silencieuse jusqu'à 38 points, et
+c'est de ne pas l'avoir vu qui a coûté cher.
 
 ### Quand la forme ne passe nulle part
 
 Resserrer les points de passage ne sert que là où le moteur avait le choix. Là où il
-n'en a pas — un fleuve dont les ponts sont espacés, un palais, un grand parc fermé —
-tous les points de passage d'une même portion se collent à la même voie de
-contournement, et le tracé s'écarte de plusieurs centaines de mètres quoi qu'on fasse.
+n'en a pas — un fleuve dont les ponts sont espacés, un jardin fermé aux vélos, une
+emprise ferroviaire — les points de passage d'une même portion se rattachent tous à
+la même voie de contournement, et le tracé s'en va avec eux. En **ajouter** n'y change
+rien : les nouveaux se rattachent au même endroit. C'est mesuré : concentrer les
+points là où l'itinéraire dérive n'a rien donné du tout.
 
-C'est mesuré, pas supposé : sur un réseau simulé avec obstacles, concentrer les points
-de passage précisément là où l'itinéraire dérive n'améliore rien du tout (37,2 m
-d'écart moyen avant comme après). Le raffinement ciblé a donc été écrit, mesuré, puis
-retiré.
+Ce qui reste à essayer, c'est de les **déplacer**. Si l'itinéraire est parti trois
+cents mètres au sud, c'est que la voie qu'il a trouvée est au sud ; `WaypointRelocator`
+pousse alors le point d'autant vers le nord, pour que le moteur cherche de ce côté-là.
+Le pari peut échouer — la voie espérée n'existe pas toujours — aussi le résultat n'est
+retenu que s'il rapproche vraiment le tracé de la forme, sans allonger la distance ni
+ajouter de retour sur ses pas. Il ne coûte donc jamais qu'un appel réseau.
 
-`ShapeCoverage` identifie ces portions — plus de 100 m d'écart, sur au moins 150 m de
-forme — et l'application les trace **en rouge sur la carte**, avec la part de forme
-concernée. Mieux vaut dire « ici, aucune voie ne suivait le dessin » que de laisser
-soupçonner un défaut de calcul. Seuls un autre départ, une autre orientation ou une
-autre distance y changent quelque chose.
+Honnêtement : le simulateur n'a pas su confirmer ce gain, sa barrière étant symétrique
+— les deux rives y sont à égale distance de la forme, et déplacer d'un côté ou de
+l'autre revient au même. Sur une ville réelle, où la forme longe rarement le milieu
+exact d'un obstacle, l'issue peut différer. Le nombre de points replacés est affiché
+avec le résultat, précisément pour qu'on puisse en juger.
 
-### 3. Retirer les allers-retours
+`ShapeCoverage` identifie par ailleurs les portions restées inaccessibles — plus de
+100 m d'écart, sur au moins 150 m de forme — et l'application les trace **en rouge sur
+la carte**. Mieux vaut dire « ici, aucune voie ne suivait le dessin » que de laisser
+soupçonner un défaut de calcul.
 
-Un point de passage qui tombe au fond d'une impasse oblige le moteur à y entrer puis
-à en ressortir par le même chemin. C'est correct du point de vue du routage — il
-fallait bien atteindre ce point — mais cela ruine le dessin, et personne ne court
-volontairement 300 m dans un cul-de-sac pour faire demi-tour.
+### Dire ce que le moteur a réellement fait
 
-`SpurTrimmer` repère ces excursions à un critère simple : **elles n'enferment aucune
-surface**. Un aller-retour a une aire nulle, là où un vrai tour de pâté de maisons en
-enferme une comparable au carré de sa longueur. C'est ce qui les distingue, et non
-leur longueur. Le tracé restant suit toujours des rues réelles : couper un
-aller-retour revient à passer devant l'entrée de l'impasse sans y entrer.
-
-### 4. Corriger la distance
-
-Suivre la voirie oblige à des détours : l'itinéraire obtenu est systématiquement plus
-long que la forme idéale, de 15 à 40 % selon le quartier. On rétrécit alors la forme
-en proportion de l'écart constaté et on recommence. Deux à trois itérations suffisent
-à retomber dans la tolérance de 3 %, chacune coûtant un appel réseau.
-
-### Quand le quartier ne s'y prête pas
-
-Certains endroits ne permettent tout simplement pas de boucler : lotissement en
-peigne, presqu'île, hameau desservi par une seule route. Aucun réglage de forme n'y
-changera rien.
-
-Une fois les allers-retours évitables retirés, `RouteOverlap` mesure ce qu'il reste
-de parcouru deux fois. Au-delà de 30 % du parcours, l'application **refuse de
-générer** et le dit, en suggérant un départ mieux desservi — plutôt que de livrer un
-tracé où l'on refait le même kilomètre à l'envers. Le seuil se règle par
-`RouteRequest.maxOverlapRatio`.
+Deux replis peuvent transformer le résultat sans rien dire : un profil de routage
+différent de celui de l'activité — passer d'un profil piéton à un profil vélo exclut
+d'un coup les allées de parc — et une requête raccourcie faute de points acceptés. La
+carte de résultat affiche donc le profil employé, le nombre de points de passage
+réellement soumis, et combien ont été replacés.
 
 ### Et la ressemblance ?
 
@@ -207,8 +193,8 @@ sélecteur de documents du système.
 - **La forme ne rend pas partout.** Un cœur de 5 km dans un lotissement en impasse
   n'existe pas. La note de ressemblance le dit ; changer l'orientation, le départ ou
   la distance aide souvent plus que d'insister.
-- **Les grandes distances demandent des formes simples.** Au-delà de 20 km, le
-  plafond de 150 points de passage fait remonter l'espacement au-dessus de 120 m et
+- **Les grandes distances demandent des formes simples.** Au-delà de 10 km, le
+  plafond de 80 points de passage fait remonter l'espacement au-dessus de 120 m et
   les détails commencent à se perdre.
 - **Les obstacles ne se contournent pas.** Là où aucune voie ne longe la forme, le
   tracé s'en écarte ; l'application le signale en rouge plutôt que de faire semblant.

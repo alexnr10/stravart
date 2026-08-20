@@ -62,6 +62,10 @@
     <string name="result_engine">Calculé par %1$s</string>
     <string name="result_deviation">Écart moyen à la forme : %1$d m</string>
     <string name="result_attempts">%1$d ajustement(s) de distance</string>
+    <string name="result_profile">profil %1$s</string>
+    <string name="result_waypoints">%1$d points de passage</string>
+    <string name="result_waypoints_reduced">%1$d points de passage sur %2$d demandés</string>
+    <string name="result_relocated">%1$d replacé(s) sur la forme</string>
     <string name="result_spurs">%1$d aller(s)-retour(s) d\'impasse supprimé(s)</string>
     <string name="result_unfollowed">%1$d %% de la forme n\'a pas pu être suivie</string>
     <string name="result_unfollowed_hint">Les portions en rouge ne longent aucune voie praticable : fleuve, parc fermé, grand bâtiment. Ajouter des points n\'y changerait rien — seuls un autre départ, une autre orientation ou une autre distance le peuvent.</string>

@@ -17,6 +17,20 @@ data class RoutedPath(
     val elevations: List<Double>? = null,
     /** Dénivelé positif cumulé, si le moteur le fournit. */
     val ascentMeters: Double? = null,
+    /**
+     * Profil réellement employé.
+     *
+     * Un moteur peut se rabattre sur un autre profil que celui demandé — et passer
+     * ainsi d'un profil piéton à un profil vélo, qui n'emprunte pas les mêmes voies.
+     * Le taire reviendrait à laisser l'utilisateur chercher pourquoi son parcours
+     * contourne le parc qu'il voulait traverser.
+     */
+    val profileUsed: String? = null,
+    /**
+     * Points de passage effectivement soumis. Peut être inférieur au nombre demandé
+     * si le moteur a exigé une requête plus courte.
+     */
+    val waypointsUsed: Int? = null,
 ) {
     init {
         require(points.size >= 2) { "un itinéraire demande au moins 2 points" }
@@ -62,6 +76,11 @@ object StraightLineEngine : RoutingEngine {
 
     override fun route(waypoints: List<LatLon>, activity: ActivityType): RoutedPath {
         if (waypoints.size < 2) throw RoutingException("Il faut au moins deux points de passage.")
-        return RoutedPath(points = waypoints, distanceMeters = Geo.pathLength(waypoints))
+        return RoutedPath(
+            points = waypoints,
+            distanceMeters = Geo.pathLength(waypoints),
+            profileUsed = "direct",
+            waypointsUsed = waypoints.size,
+        )
     }
 }

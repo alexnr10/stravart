@@ -4,7 +4,6 @@ import com.stravart.core.geo.Geo
 import com.stravart.core.geo.LatLon
 import com.stravart.core.geo.Vec2
 import kotlin.math.hypot
-import kotlin.math.min
 
 /**
  * Écart, point par point, entre un tracé et un autre.
@@ -21,32 +20,45 @@ internal object ShapeDeviation {
 
     /** Distance en mètres de chaque point de [from] au tracé [to]. */
     fun perPoint(from: List<LatLon>, to: List<LatLon>, origin: LatLon = from.first()): DoubleArray {
-        if (from.isEmpty()) return DoubleArray(0)
-        if (to.isEmpty()) return DoubleArray(from.size)
-
-        val target = to.map { Geo.toLocal(origin, it) }
-        return DoubleArray(from.size) { index ->
-            distanceToLocalPath(Geo.toLocal(origin, from[index]), target)
-        }
+        val offsets = offsets(from, to, origin)
+        return DoubleArray(offsets.size) { hypot(offsets[it].x, offsets[it].y) }
     }
 
-    private fun distanceToLocalPath(point: Vec2, path: List<Vec2>): Double {
-        if (path.size == 1) return point.distanceTo(path[0])
-        var best = Double.MAX_VALUE
+    /**
+     * Vecteur, en mètres, allant de chaque point de [from] au point le plus proche
+     * du tracé [to]. Sa direction dit *de quel côté* le tracé s'est éloigné — ce que
+     * la seule distance ne dit pas, et sans quoi on ne saurait pas où le ramener.
+     */
+    fun offsets(from: List<LatLon>, to: List<LatLon>, origin: LatLon = from.first()): List<Vec2> {
+        if (from.isEmpty()) return emptyList()
+        if (to.isEmpty()) return from.map { Vec2(0.0, 0.0) }
+
+        val target = to.map { Geo.toLocal(origin, it) }
+        return from.map { closestOffset(Geo.toLocal(origin, it), target) }
+    }
+
+    private fun closestOffset(point: Vec2, path: List<Vec2>): Vec2 {
+        if (path.size == 1) return Vec2(path[0].x - point.x, path[0].y - point.y)
+        var best = Vec2(0.0, 0.0)
+        var bestDistance = Double.MAX_VALUE
         for (i in 1 until path.size) {
-            best = min(best, pointToSegment(point, path[i - 1], path[i]))
-            if (best == 0.0) return 0.0
+            val offset = offsetToSegment(point, path[i - 1], path[i])
+            val distance = hypot(offset.x, offset.y)
+            if (distance < bestDistance) {
+                bestDistance = distance
+                best = offset
+            }
         }
         return best
     }
 
-    private fun pointToSegment(p: Vec2, a: Vec2, b: Vec2): Double {
+    private fun offsetToSegment(p: Vec2, a: Vec2, b: Vec2): Vec2 {
         val vx = b.x - a.x
         val vy = b.y - a.y
         val len2 = vx * vx + vy * vy
-        if (len2 < 1e-12) return p.distanceTo(a)
+        if (len2 < 1e-12) return Vec2(a.x - p.x, a.y - p.y)
         val t = (((p.x - a.x) * vx + (p.y - a.y) * vy) / len2).coerceIn(0.0, 1.0)
-        return hypot(p.x - (a.x + t * vx), p.y - (a.y + t * vy))
+        return Vec2(a.x + t * vx - p.x, a.y + t * vy - p.y)
     }
 
     /**

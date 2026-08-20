@@ -3,6 +3,7 @@ package com.stravart.core.gpx
 import com.stravart.core.geo.LatLon
 import com.stravart.core.route.Fidelity
 import com.stravart.core.route.GeneratedRoute
+import com.stravart.core.route.RouteDiagnostics
 import com.stravart.core.routing.ActivityType
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -95,6 +96,7 @@ class GpxWriterTest {
             fidelity = Fidelity(42.0, 130.0, 78),
             overlapRatio = 0.04,
             unfollowed = emptyList(),
+            diagnostics = RouteDiagnostics(points, points.size, "trekking", 0),
             removedSpurs = 1,
             activity = ActivityType.BIKE,
             engineName = "BRouter",
