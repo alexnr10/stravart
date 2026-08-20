@@ -90,6 +90,22 @@ avant recherche, et cinq appels au maximum par génération.
 
 ---
 
+## Installer l'application
+
+Chaque build publie l'APK de débogage dans une **pre-release GitHub**, une par
+branche, dont l'adresse ne change pas d'un build à l'autre :
+
+<https://github.com/alexnr10/stravart/releases>
+
+Ouvrez la page depuis le téléphone, touchez `stravart-debug.apk`, autorisez
+l'installation depuis le navigateur, et c'est fait. Android 8.0 minimum.
+
+L'APK est signé avec la clé de débogage : c'est ce qu'il faut pour une
+installation manuelle, mais une version signée autrement ne pourra pas
+s'installer par-dessus — il faudra désinstaller d'abord.
+
+---
+
 ## Construire le projet
 
 Prérequis : JDK 17 et le SDK Android (API 35). Android Studio les installe pour vous.

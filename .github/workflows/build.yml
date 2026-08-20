@@ -8,6 +8,11 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+
+    # Nécessaire pour publier l'APK en pre-release.
+    permissions:
+      contents: write
+
     steps:
       - uses: actions/checkout@v4
 
@@ -36,3 +41,39 @@ jobs:
           name: stravart-debug-apk
           path: app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
+
+      # Une pre-release par branche, recréée à chaque build : l'adresse de
+      # téléchargement ne change jamais, ce qui permet d'installer l'application
+      # depuis le téléphone en un seul appui, sans archive à décompresser.
+      - name: Publier l'APK en pre-release
+        if: github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          tag="dev-$(printf '%s' "$GITHUB_REF_NAME" | tr '/_' '--' | tr -cd '[:alnum:]-')"
+          url="https://github.com/$GITHUB_REPOSITORY/releases/download/$tag/stravart-debug.apk"
+          cp app/build/outputs/apk/debug/app-debug.apk stravart-debug.apk
+
+          cat > notes.md <<'NOTES'
+          APK de débogage, compilé automatiquement.
+
+          **Installation** — ouvrez cette page depuis le téléphone, touchez
+          `stravart-debug.apk`, puis autorisez l'installation depuis le navigateur.
+
+          Android 8.0 minimum. L'APK est signé avec la clé de débogage : c'est ce
+          qu'il faut pour une installation manuelle, mais une version signée
+          autrement ne pourra pas s'installer par-dessus.
+          NOTES
+          printf '\nBranche `%s`, commit %s.\n' "$GITHUB_REF_NAME" "${GITHUB_SHA:0:7}" >> notes.md
+
+          # Le tag est réutilisé d'un build à l'autre : on repart d'une release
+          # propre plutôt que d'empiler les fichiers portant le même nom.
+          gh release delete "$tag" --yes --cleanup-tag || true
+          gh release create "$tag" stravart-debug.apk \
+            --prerelease \
+            --target "$GITHUB_SHA" \
+            --title "StravArt — build $tag" \
+            --notes-file notes.md
+
+          printf '### APK publié\n\n%s\n' "$url" >> "$GITHUB_STEP_SUMMARY"
