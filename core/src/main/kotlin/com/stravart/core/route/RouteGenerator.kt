@@ -21,9 +21,15 @@ import kotlin.math.roundToInt
  *    tracé idéal et on demande au moteur de routage de les relier par des rues et
  *    des chemins. Le résultat ressemble à la forme, mais il est *plus long* : suivre
  *    la voirie oblige à des détours.
- * 3. **Corriger l'échelle.** On rétrécit (ou agrandit) la forme proportionnellement à
- *    l'écart constaté, et on recommence. Deux ou trois itérations suffisent en
- *    général à tomber dans la tolérance demandée, chacune coûtant un appel réseau.
+ * 3. **Nettoyer et corriger l'échelle.** On retire les allers-retours — un point de
+ *    passage tombé dans une impasse fait entrer puis ressortir le tracé par le même
+ *    chemin — puis on rétrécit (ou agrandit) la forme proportionnellement à l'écart
+ *    de distance constaté, et on recommence. Deux ou trois itérations suffisent en
+ *    général, chacune coûtant un appel réseau.
+ *
+ * Reste le cas où le quartier ne se prête pas à l'exercice : quand le tracé retenu
+ * refait une part importante de lui-même en sens inverse, la génération échoue par
+ * [UnsuitableAreaException] plutôt que de livrer un parcours dénué de sens.
  */
 class RouteGenerator(private val engine: RoutingEngine) {
 
@@ -56,7 +62,7 @@ class RouteGenerator(private val engine: RoutingEngine) {
         var failure: RoutingException? = null
 
         for (attempt in 1..maxAttempts) {
-            onProgress(RouteProgress(attempt, maxAttempts, progressMessage(attempt, best)))
+            onProgress(RouteProgress(attempt, maxAttempts, progressMessage(attempt)))
 
             val ideal = ShapeProjector.project(
                 shape = request.shape,
@@ -74,20 +80,21 @@ class RouteGenerator(private val engine: RoutingEngine) {
                 ideal
             }
 
-            val routed = try {
+            val raw = try {
                 engine.route(waypoints, request.activity)
             } catch (e: RoutingException) {
                 failure = e
                 break
             }
+            val routed = if (engine.snapsToRoads) clean(raw) else Cleaned(raw, spurs = 0)
 
-            val error = abs(routed.distanceMeters - target) / target
+            val error = abs(routed.path.distanceMeters - target) / target
             if (best == null || error < best.error) {
                 best = Attempt(ideal, routed, error, attempt)
             }
             if (error <= request.toleranceRatio) break
 
-            if (routed.distanceMeters < target) {
+            if (routed.path.distanceMeters < target) {
                 tooShort = maxOf(tooShort ?: scale, scale)
             } else {
                 tooLong = minOf(tooLong ?: scale, scale)
@@ -104,7 +111,7 @@ class RouteGenerator(private val engine: RoutingEngine) {
             } else {
                 // Tant qu'on n'encadre pas la cible : si l'itinéraire fait 20 % de
                 // trop, on rétrécit la forme d'autant.
-                scale * (target / routed.distanceMeters).coerceIn(0.5, 2.0)
+                scale * (target / routed.path.distanceMeters).coerceIn(0.5, 2.0)
             }
 
             val clamped = next.coerceIn(minScale, maxScale)
@@ -114,13 +121,26 @@ class RouteGenerator(private val engine: RoutingEngine) {
 
         val result = best ?: throw (failure ?: RoutingException("Aucun itinéraire n'a pu être calculé."))
 
+        // Le nettoyage a retiré les allers-retours évitables ; ce qu'il reste de
+        // parcouru deux fois est imposé par le réseau lui-même.
+        val overlap = if (engine.snapsToRoads) RouteOverlap.measure(result.routed.path.points) else 0.0
+        if (overlap > request.maxOverlapRatio) {
+            throw UnsuitableAreaException(
+                "Impossible de boucler ici sans revenir sur ses pas : " +
+                    "${(overlap * 100).roundToInt()} % du parcours emprunterait deux fois les mêmes voies.",
+                overlapRatio = overlap,
+            )
+        }
+
         return GeneratedRoute(
-            points = result.routed.points,
-            elevations = result.routed.elevations,
+            points = result.routed.path.points,
+            elevations = result.routed.path.elevations,
             idealShape = result.ideal,
-            distanceMeters = result.routed.distanceMeters,
-            ascentMeters = result.routed.ascentMeters ?: result.routed.elevations?.let(::ascentOf),
-            fidelity = ShapeFidelity.evaluate(result.ideal, result.routed.points),
+            distanceMeters = result.routed.path.distanceMeters,
+            ascentMeters = ascentOrNull(result.routed.path),
+            fidelity = ShapeFidelity.evaluate(result.ideal, result.routed.path.points),
+            overlapRatio = overlap,
+            removedSpurs = result.routed.spurs,
             activity = request.activity,
             engineName = engine.displayName,
             snappedToRoads = engine.snapsToRoads,
@@ -128,6 +148,40 @@ class RouteGenerator(private val engine: RoutingEngine) {
             name = request.name ?: defaultName(request.distanceMeters),
         )
     }
+
+    /**
+     * Retire les allers-retours du tracé rendu par le moteur.
+     *
+     * La distance annoncée par le moteur ne vaut plus dès qu'on a coupé dans sa
+     * géométrie : on la recalcule alors sur ce qu'il reste. Tant qu'on n'a rien
+     * touché, celle du moteur fait autorité — il connaît le réseau mieux que notre
+     * approximation plane.
+     */
+    private fun clean(raw: RoutedPath): Cleaned {
+        val trim = SpurTrimmer.trim(raw.points)
+        if (!trim.trimmed) return Cleaned(raw, spurs = 0)
+
+        val points = trim.select(raw.points)
+        if (points.size < 2) return Cleaned(raw, spurs = 0)
+        val elevations = raw.elevations?.let { trim.select(it) }
+
+        return Cleaned(
+            RoutedPath(
+                points = points,
+                distanceMeters = Geo.pathLength(points),
+                elevations = elevations,
+                ascentMeters = elevations?.let(::ascentOf) ?: raw.ascentMeters,
+            ),
+            spurs = trim.spurCount,
+        )
+    }
+
+    /** Dénivelé positif : celui du moteur s'il le fournit, sinon reconstitué. */
+    private fun ascentOrNull(path: RoutedPath): Double? =
+        path.ascentMeters ?: path.elevations?.let(::ascentOf)
+
+    /** Un tracé débarrassé de ses allers-retours, et le nombre de ceux qui ont sauté. */
+    private data class Cleaned(val path: RoutedPath, val spurs: Int)
 
     private fun waypointCount(idealLength: Double, request: RouteRequest): Int =
         WaypointSampler.budgetFor(
@@ -137,13 +191,8 @@ class RouteGenerator(private val engine: RoutingEngine) {
             max = engine.maxWaypoints,
         )
 
-    private fun progressMessage(attempt: Int, best: Attempt?): String = when {
-        attempt == 1 -> "Calcul de l'itinéraire…"
-        best == null -> "Nouvel essai…"
-        best.routed.distanceMeters > 0 ->
-            "Ajustement de la distance (essai $attempt)…"
-        else -> "Ajustement (essai $attempt)…"
-    }
+    private fun progressMessage(attempt: Int): String =
+        if (attempt == 1) "Calcul de l'itinéraire…" else "Ajustement de la distance (essai $attempt)…"
 
     private fun ascentOf(elevations: List<Double>): Double {
         var gain = 0.0
@@ -157,9 +206,9 @@ class RouteGenerator(private val engine: RoutingEngine) {
     private fun defaultName(distanceMeters: Double): String =
         "StravArt ${(distanceMeters / 100).roundToInt() / 10.0} km"
 
-    private data class Attempt(
+    private class Attempt(
         val ideal: List<LatLon>,
-        val routed: RoutedPath,
+        val routed: Cleaned,
         val error: Double,
         val attempt: Int,
     )

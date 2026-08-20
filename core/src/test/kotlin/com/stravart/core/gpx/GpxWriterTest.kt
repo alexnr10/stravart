@@ -93,6 +93,8 @@ class GpxWriterTest {
             distanceMeters = 10_250.0,
             ascentMeters = 88.0,
             fidelity = Fidelity(42.0, 130.0, 78),
+            overlapRatio = 0.04,
+            removedSpurs = 1,
             activity = ActivityType.BIKE,
             engineName = "BRouter",
             snappedToRoads = true,

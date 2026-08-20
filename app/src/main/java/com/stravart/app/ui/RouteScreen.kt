@@ -31,6 +31,7 @@ import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material.icons.filled.Place
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -211,6 +212,8 @@ fun RouteScreen(
                             )
                         }
                     }
+
+                    state.blocker?.let { reason -> BlockedCard(reason) }
 
                     state.route?.let { route ->
                         ResultCard(
@@ -598,12 +601,19 @@ private fun ResultCard(
                 }
             }
 
+            val deviation = stringResource(
+                R.string.result_deviation,
+                route.fidelity.meanDeviationMeters.roundToInt(),
+            )
+            val spurs = if (route.removedSpurs > 0) {
+                stringResource(R.string.result_spurs, route.removedSpurs)
+            } else {
+                null
+            }
+            val attempts = stringResource(R.string.result_attempts, route.attempts)
+            val engine = stringResource(R.string.result_engine, route.engineName)
             Text(
-                text = listOf(
-                    stringResource(R.string.result_deviation, route.fidelity.meanDeviationMeters.roundToInt()),
-                    stringResource(R.string.result_attempts, route.attempts),
-                    stringResource(R.string.result_engine, route.engineName),
-                ).joinToString(" · "),
+                text = listOfNotNull(deviation, spurs, attempts, engine).joinToString(" · "),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -636,6 +646,60 @@ private fun ResultCard(
                 text = stringResource(R.string.export_hint),
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+}
+
+/**
+ * Refus explicite quand le quartier ne se prête pas à une boucle.
+ *
+ * Un bandeau fugace ne conviendrait pas : l'utilisateur vient d'attendre un calcul
+ * pour ne rien obtenir, il lui faut la raison et la marche à suivre, affichées
+ * jusqu'à ce qu'il change quelque chose.
+ */
+@Composable
+private fun BlockedCard(reason: String) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Warning,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onErrorContainer,
+                    modifier = Modifier.size(20.dp),
+                )
+                Text(
+                    text = stringResource(R.string.blocked_title),
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onErrorContainer,
+                )
+            }
+            Text(
+                text = reason,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onErrorContainer,
+            )
+            Text(
+                text = stringResource(R.string.blocked_advice),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onErrorContainer,
+            )
+            Text(
+                text = stringResource(R.string.blocked_suggestion),
+                style = MaterialTheme.typography.bodySmall,
+                fontWeight = FontWeight.Medium,
+                color = MaterialTheme.colorScheme.onErrorContainer,
             )
         }
     }

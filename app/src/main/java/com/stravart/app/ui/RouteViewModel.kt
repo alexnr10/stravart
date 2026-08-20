@@ -15,6 +15,7 @@ import com.stravart.core.net.JdkHttpClient
 import com.stravart.core.route.GeneratedRoute
 import com.stravart.core.route.RouteGenerator
 import com.stravart.core.route.RouteRequest
+import com.stravart.core.route.UnsuitableAreaException
 import com.stravart.core.routing.ActivityType
 import com.stravart.core.routing.BRouterEngine
 import com.stravart.core.routing.OsrmEngine
@@ -69,6 +70,12 @@ data class RouteUiState(
     val progress: String? = null,
     val route: GeneratedRoute? = null,
     val message: String? = null,
+    /**
+     * Motif du refus quand le quartier ne permet pas de boucler. Distinct de
+     * [message] : celui-ci passe dans un bandeau fugace, alors qu'un refus doit
+     * rester à l'écran, avec ce qu'il faut faire pour s'en sortir.
+     */
+    val blocker: String? = null,
 ) {
     val distanceMeters: Double get() = distanceKm.toDouble() * 1000.0
 
@@ -137,44 +144,52 @@ class RouteViewModel(application: Application) : AndroidViewModel(application) {
 
     // --- Réglages du parcours ------------------------------------------------
 
+    /**
+     * Applique un changement de réglage. Toute modification d'entrée efface le refus
+     * précédent : c'est précisément en changeant quelque chose que l'utilisateur en
+     * sort, l'y laisser serait lui dire que rien n'a bougé.
+     */
+    private fun updateSettings(transform: (RouteUiState) -> RouteUiState) =
+        _state.update { transform(it).copy(blocker = null) }
+
     fun selectShape(id: String) {
         preferences.shapeId = id
-        _state.update { it.copy(shapeId = id, route = null) }
+        updateSettings { it.copy(shapeId = id, route = null) }
     }
 
     fun setCustomShape(shape: ShapePath) {
         preferences.shapeId = CUSTOM_SHAPE_ID
         preferences.customShape = shape
-        _state.update { it.copy(shapeId = CUSTOM_SHAPE_ID, customShape = shape, route = null) }
+        updateSettings { it.copy(shapeId = CUSTOM_SHAPE_ID, customShape = shape, route = null) }
     }
 
     fun setDistance(km: Float) {
         preferences.distanceKm = km
-        _state.update { it.copy(distanceKm = km) }
+        updateSettings { it.copy(distanceKm = km) }
     }
 
     fun setActivity(activity: ActivityType) {
         preferences.activity = activity
-        _state.update { it.copy(activity = activity) }
+        updateSettings { it.copy(activity = activity) }
     }
 
-    fun setRotation(degrees: Float) = _state.update { it.copy(rotationDeg = degrees) }
+    fun setRotation(degrees: Float) = updateSettings { it.copy(rotationDeg = degrees) }
 
-    fun setMirrored(mirrored: Boolean) = _state.update { it.copy(mirrored = mirrored) }
+    fun setMirrored(mirrored: Boolean) = updateSettings { it.copy(mirrored = mirrored) }
 
     fun setAnchorMode(mode: AnchorMode) {
         preferences.anchorMode = mode
-        _state.update { it.copy(anchorMode = mode) }
+        updateSettings { it.copy(anchorMode = mode) }
     }
 
     fun setEngine(choice: EngineChoice) {
         preferences.engineId = choice.id
-        _state.update { it.copy(engine = choice) }
+        updateSettings { it.copy(engine = choice) }
     }
 
     fun setOsrmUrl(url: String) {
         preferences.osrmUrl = url
-        _state.update { it.copy(osrmUrl = url) }
+        updateSettings { it.copy(osrmUrl = url) }
     }
 
     // --- Point de départ -----------------------------------------------------
@@ -182,7 +197,7 @@ class RouteViewModel(application: Application) : AndroidViewModel(application) {
     fun setStart(location: LatLon, label: String? = null) {
         preferences.lastStart = location
         preferences.lastStartLabel = label
-        _state.update {
+        updateSettings {
             it.copy(start = location, startLabel = label, results = emptyList(), query = "", route = null)
         }
         if (label == null) resolveLabel(location)
@@ -274,7 +289,14 @@ class RouteViewModel(application: Application) : AndroidViewModel(application) {
 
         generateJob?.cancel()
         generateJob = viewModelScope.launch {
-            _state.update { it.copy(generating = true, message = null, progress = string(R.string.generating)) }
+            _state.update {
+                it.copy(
+                    generating = true,
+                    message = null,
+                    blocker = null,
+                    progress = string(R.string.generating),
+                )
+            }
             val outcome = withContext(Dispatchers.IO) {
                 runCatching {
                     RouteGenerator(engine).generate(request) { progress ->
@@ -291,7 +313,12 @@ class RouteViewModel(application: Application) : AndroidViewModel(application) {
                         it.copy(
                             generating = false,
                             progress = null,
-                            message = error.message ?: string(R.string.error_title),
+                            route = null,
+                            // Un quartier qui ne boucle pas n'est pas une panne : le
+                            // message doit rester lisible et dire quoi faire.
+                            blocker = (error as? UnsuitableAreaException)?.message,
+                            message = if (error is UnsuitableAreaException) null
+                            else error.message ?: string(R.string.error_title),
                         )
                     }
                 }

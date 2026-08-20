@@ -15,7 +15,9 @@ l'exporte en **GPX** pour Garmin Connect ou Strava.
    long sur la carte. La forme s'affiche aussitôt sur la carte, avant tout calcul :
    inutile d'attendre un aller-retour réseau pour voir qu'elle tombe dans le fleuve.
 4. « Créer le parcours » calcule un itinéraire qui **suit les rues et les chemins**,
-   dessine la forme demandée et mesure la bonne distance.
+   dessine la forme demandée et mesure la bonne distance. Les détours dans les
+   impasses sont retirés ; si le quartier ne permet pas de boucler sans revenir sur
+   ses pas, l'application le dit au lieu de produire un tracé bancal.
 5. « Partager » ou « Enregistrer » produit un `.gpx` prêt à importer.
 
 Le parcours est une boucle : il revient à son point de départ.
@@ -59,12 +61,37 @@ L'échantillonnage n'est pas régulier, et c'est important. Un échantillonnage 
 garde donc d'abord les sommets (les changements de direction de plus de 25°), puis
 répartit le budget restant entre eux au prorata des longueurs.
 
-### 3. Corriger la distance
+### 3. Retirer les allers-retours
+
+Un point de passage qui tombe au fond d'une impasse oblige le moteur à y entrer puis
+à en ressortir par le même chemin. C'est correct du point de vue du routage — il
+fallait bien atteindre ce point — mais cela ruine le dessin, et personne ne court
+volontairement 300 m dans un cul-de-sac pour faire demi-tour.
+
+`SpurTrimmer` repère ces excursions à un critère simple : **elles n'enferment aucune
+surface**. Un aller-retour a une aire nulle, là où un vrai tour de pâté de maisons en
+enferme une comparable au carré de sa longueur. C'est ce qui les distingue, et non
+leur longueur. Le tracé restant suit toujours des rues réelles : couper un
+aller-retour revient à passer devant l'entrée de l'impasse sans y entrer.
+
+### 4. Corriger la distance
 
 Suivre la voirie oblige à des détours : l'itinéraire obtenu est systématiquement plus
 long que la forme idéale, de 15 à 40 % selon le quartier. On rétrécit alors la forme
 en proportion de l'écart constaté et on recommence. Deux à trois itérations suffisent
 à retomber dans la tolérance de 3 %, chacune coûtant un appel réseau.
+
+### Quand le quartier ne s'y prête pas
+
+Certains endroits ne permettent tout simplement pas de boucler : lotissement en
+peigne, presqu'île, hameau desservi par une seule route. Aucun réglage de forme n'y
+changera rien.
+
+Une fois les allers-retours évitables retirés, `RouteOverlap` mesure ce qu'il reste
+de parcouru deux fois. Au-delà de 30 % du parcours, l'application **refuse de
+générer** et le dit, en suggérant un départ mieux desservi — plutôt que de livrer un
+tracé où l'on refait le même kilomètre à l'envers. Le seuil se règle par
+`RouteRequest.maxOverlapRatio`.
 
 ### Et la ressemblance ?
 

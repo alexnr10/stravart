@@ -62,7 +62,13 @@
     <string name="result_engine">Calculé par %1$s</string>
     <string name="result_deviation">Écart moyen à la forme : %1$d m</string>
     <string name="result_attempts">%1$d ajustement(s) de distance</string>
+    <string name="result_spurs">%1$d aller(s)-retour(s) d\'impasse supprimé(s)</string>
     <string name="result_low_fidelity">Le réseau de rues s\'écarte nettement de la forme ici. Essayez une autre orientation, un autre départ ou une distance différente.</string>
+
+    <!-- Zone impossible à boucler -->
+    <string name="blocked_title">Impossible de boucler ici</string>
+    <string name="blocked_advice">Aucune forme ni orientation n\'y changera : autour de ce départ, les rues ne permettent pas de revenir sans refaire le même chemin.</string>
+    <string name="blocked_suggestion">Essayez un départ mieux desservi — centre-ville, grand parc, quartier où les rues se croisent — ou déplacez le point de quelques centaines de mètres.</string>
 
     <!-- Export -->
     <string name="export_share">Partager le GPX</string>

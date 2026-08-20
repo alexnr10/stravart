@@ -22,12 +22,19 @@ data class RouteRequest(
     val maxAttempts: Int = 5,
     /** Espacement visé entre points de passage ; `null` = valeur par défaut de l'activité. */
     val waypointSpacingMeters: Double? = null,
+    /**
+     * Part maximale du parcours acceptée en aller-retour. Au-delà, le quartier ne
+     * permet pas de boucler et la génération échoue plutôt que de livrer un tracé
+     * qui refait deux fois les mêmes rues.
+     */
+    val maxOverlapRatio: Double = 0.30,
     val name: String? = null,
 ) {
     init {
         require(distanceMeters >= 200) { "la distance doit valoir au moins 200 m" }
         require(toleranceRatio > 0) { "la tolérance doit être positive" }
         require(maxAttempts >= 1) { "il faut au moins une tentative" }
+        require(maxOverlapRatio in 0.0..1.0) { "la part d'aller-retour tolérée doit être une fraction" }
     }
 
     /** Espacement effectif entre points de passage. */
@@ -49,6 +56,10 @@ data class GeneratedRoute(
     val distanceMeters: Double,
     val ascentMeters: Double?,
     val fidelity: Fidelity,
+    /** Part du parcours empruntée deux fois, entre 0 et 1. */
+    val overlapRatio: Double,
+    /** Nombre d'allers-retours retirés du tracé rendu par le moteur. */
+    val removedSpurs: Int,
     val activity: ActivityType,
     val engineName: String,
     val snappedToRoads: Boolean,
@@ -59,6 +70,19 @@ data class GeneratedRoute(
     val distanceKm: Double get() = distanceMeters / 1000.0
     val start: LatLon get() = points.first()
 }
+
+/**
+ * Levée quand le réseau de rues autour du départ ne permet pas de boucler sans
+ * refaire une part importante du parcours à l'envers.
+ *
+ * Ce n'est pas une panne : aucune forme, aucune orientation ni aucune distance ne
+ * corrigera un quartier en impasses. Seul un autre point de départ le peut.
+ */
+class UnsuitableAreaException(
+    message: String,
+    /** Part du parcours qui aurait été parcourue deux fois. */
+    val overlapRatio: Double,
+) : Exception(message)
 
 /** Avancement d'une génération, pour tenir l'interface informée. */
 data class RouteProgress(
