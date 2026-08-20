@@ -72,6 +72,7 @@ import com.stravart.app.ui.components.RouteMap
 import com.stravart.app.ui.components.ShapeThumbnail
 import com.stravart.app.ui.theme.RouteGreen
 import com.stravart.app.ui.theme.ShapeOrange
+import com.stravart.app.ui.theme.StrayRed
 import com.stravart.core.geo.LatLon
 import com.stravart.core.route.GeneratedRoute
 import com.stravart.core.routing.ActivityType
@@ -152,8 +153,10 @@ fun RouteScreen(
                     start = state.start,
                     route = state.route?.points.orEmpty(),
                     idealShape = state.route?.idealShape ?: state.preview,
+                    unfollowed = state.route?.unfollowed?.map { it.shapePoints }.orEmpty(),
                     routeColor = RouteGreen,
                     shapeColor = ShapeOrange,
+                    strayColor = StrayRed,
                     startTitle = stringResource(R.string.start_marker_title),
                     onLongPress = actions.setStart,
                     modifier = Modifier.fillMaxSize(),
@@ -254,13 +257,16 @@ data class RouteActions(
 
 @Composable
 private fun MapOverlay(state: RouteUiState, modifier: Modifier = Modifier) {
-    if (state.route == null) return
+    val route = state.route ?: return
     Row(
         modifier = modifier.padding(12.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         LegendChip(stringResource(R.string.map_legend_route), RouteGreen)
         LegendChip(stringResource(R.string.map_legend_shape), ShapeOrange)
+        if (route.unfollowed.isNotEmpty()) {
+            LegendChip(stringResource(R.string.map_legend_stray), StrayRed)
+        }
     }
 }
 
@@ -617,6 +623,35 @@ private fun ResultCard(
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+
+            if (route.unfollowed.isNotEmpty()) {
+                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    ) {
+                        Box(
+                            Modifier
+                                .size(10.dp)
+                                .clip(RoundedCornerShape(50))
+                                .background(StrayRed),
+                        )
+                        Text(
+                            text = stringResource(
+                                R.string.result_unfollowed,
+                                (route.unfollowedRatio * 100).roundToInt(),
+                            ),
+                            style = MaterialTheme.typography.bodySmall,
+                            fontWeight = FontWeight.Medium,
+                        )
+                    }
+                    Text(
+                        text = stringResource(R.string.result_unfollowed_hint),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
 
             if (route.fidelity.score < LOW_FIDELITY_THRESHOLD) {
                 Text(

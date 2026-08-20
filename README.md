@@ -70,9 +70,28 @@ de ce palier, c'est la maille du réseau qui limite, pas l'échantillonnage. On 
 pas passer plus près qu'à la rue la plus proche.
 
 Cela ne coûte d'ailleurs pas plus cher au serveur : découper en tronçons courts lui
-épargne les longues recherches de chemin. Si une requête est malgré tout refusée,
+épargne les longues recherches de chemin. Le plafond de 150 points par requête laisse
+un parcours de 18 km atteindre cet espacement. Si une requête est malgré tout refusée,
 `BRouterEngine` réessaie avec deux fois moins de points — moins fidèle, mais un
 parcours plutôt qu'un échec.
+
+### Quand la forme ne passe nulle part
+
+Resserrer les points de passage ne sert que là où le moteur avait le choix. Là où il
+n'en a pas — un fleuve dont les ponts sont espacés, un palais, un grand parc fermé —
+tous les points de passage d'une même portion se collent à la même voie de
+contournement, et le tracé s'écarte de plusieurs centaines de mètres quoi qu'on fasse.
+
+C'est mesuré, pas supposé : sur un réseau simulé avec obstacles, concentrer les points
+de passage précisément là où l'itinéraire dérive n'améliore rien du tout (37,2 m
+d'écart moyen avant comme après). Le raffinement ciblé a donc été écrit, mesuré, puis
+retiré.
+
+`ShapeCoverage` identifie ces portions — plus de 100 m d'écart, sur au moins 150 m de
+forme — et l'application les trace **en rouge sur la carte**, avec la part de forme
+concernée. Mieux vaut dire « ici, aucune voie ne suivait le dessin » que de laisser
+soupçonner un défaut de calcul. Seuls un autre départ, une autre orientation ou une
+autre distance y changent quelque chose.
 
 ### 3. Retirer les allers-retours
 
@@ -188,9 +207,11 @@ sélecteur de documents du système.
 - **La forme ne rend pas partout.** Un cœur de 5 km dans un lotissement en impasse
   n'existe pas. La note de ressemblance le dit ; changer l'orientation, le départ ou
   la distance aide souvent plus que d'insister.
-- **Les grandes distances demandent des formes simples.** Au-delà de 30 km, le budget
-  de 40 points de passage laisse plus de 700 m entre deux jalons : les détails se
-  perdent.
+- **Les grandes distances demandent des formes simples.** Au-delà de 20 km, le
+  plafond de 150 points de passage fait remonter l'espacement au-dessus de 120 m et
+  les détails commencent à se perdre.
+- **Les obstacles ne se contournent pas.** Là où aucune voie ne longe la forme, le
+  tracé s'en écarte ; l'application le signale en rouge plutôt que de faire semblant.
 - **Le dénivelé** n'est renseigné que par BRouter.
 - **L'interface est en français** uniquement pour l'instant.
 - **Aucun test instrumenté** : l'interface n'est pas couverte, seule l'algorithmique

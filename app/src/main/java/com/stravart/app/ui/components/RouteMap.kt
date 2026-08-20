@@ -37,8 +37,10 @@ fun RouteMap(
     start: LatLon?,
     route: List<LatLon>,
     idealShape: List<LatLon>,
+    unfollowed: List<List<LatLon>>,
     routeColor: Color,
     shapeColor: Color,
+    strayColor: Color,
     startTitle: String,
     onLongPress: (LatLon) -> Unit,
     modifier: Modifier = Modifier,
@@ -51,6 +53,9 @@ fun RouteMap(
     val routeLine = remember { Polyline(mapView) }
     val shapeLine = remember { Polyline(mapView) }
     val startMarker = remember { Marker(mapView) }
+    // Les portions non suivies vont et viennent d'un calcul à l'autre : on garde un
+    // petit vivier de polylignes plutôt que d'en recréer à chaque recomposition.
+    val strayLines = remember { mutableListOf<Polyline>() }
 
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
@@ -115,6 +120,8 @@ fun RouteMap(
             shapeLine.setPoints(idealShape.toGeoPoints())
             routeLine.setPoints(route.toGeoPoints())
 
+            syncStrayLines(map, strayLines, unfollowed, strayColor.toArgb())
+
             startMarker.isEnabled = start != null
             startMarker.title = startTitle
             start?.let { startMarker.position = GeoPoint(it.lat, it.lon) }
@@ -136,6 +143,38 @@ fun RouteMap(
         } else if (start != null) {
             mapView.post { mapView.controller.animateTo(GeoPoint(start.lat, start.lon)) }
         }
+    }
+}
+
+/**
+ * Ajuste le vivier de polylignes rouges au nombre de portions à montrer.
+ *
+ * Ces portions suivent la *forme*, pas l'itinéraire : elles disent « voilà ce que le
+ * réseau n'a pas permis de dessiner », ce qui vaut mieux que de laisser l'utilisateur
+ * soupçonner un défaut de calcul.
+ */
+private fun syncStrayLines(
+    map: MapView,
+    pool: MutableList<Polyline>,
+    stretches: List<List<LatLon>>,
+    color: Int,
+) {
+    while (pool.size < stretches.size) {
+        val line = Polyline(map).apply {
+            outlinePaint.style = Paint.Style.STROKE
+            outlinePaint.strokeWidth = 9f
+            outlinePaint.strokeCap = Paint.Cap.ROUND
+            outlinePaint.isAntiAlias = true
+        }
+        pool += line
+        map.overlays.add(line)
+    }
+    while (pool.size > stretches.size) {
+        map.overlays.remove(pool.removeAt(pool.lastIndex))
+    }
+    stretches.forEachIndexed { index, points ->
+        pool[index].outlinePaint.color = color
+        pool[index].setPoints(points.toGeoPoints())
     }
 }
 

@@ -38,6 +38,14 @@ object SpurTrimmer {
     private const val MAX_SPUR_RATIO = 0.35
 
     /**
+     * Borne absolue, qui prime sur la précédente. Un aller-retour dans une impasse
+     * est un accident local : quelques centaines de mètres, pas davantage. Sans ce
+     * plafond, un tiers d'un parcours de 30 km ferait dix kilomètres — de quoi
+     * effacer un lobe entier de la forme sous prétexte qu'il enferme peu de surface.
+     */
+    private const val MAX_SPUR_METERS = 1_200.0
+
+    /**
      * Surface enfermée, rapportée au carré de la longueur, en dessous de laquelle la
      * portion est jugée dégénérée. Un cercle vaut 0,080 et un tour de pâté de maisons
      * carré 0,063 : le seuil laisse une marge confortable.
@@ -87,7 +95,7 @@ object SpurTrimmer {
         }
         val total = cumulative.last()
         if (total <= 0.0) return Result(points.indices.toList(), 0.0, 0)
-        val maxSpur = total * MAX_SPUR_RATIO
+        val maxSpur = kotlin.math.min(total * MAX_SPUR_RATIO, MAX_SPUR_METERS)
 
         val origin = points.first()
         val local = points.map { Geo.toLocal(origin, it) }

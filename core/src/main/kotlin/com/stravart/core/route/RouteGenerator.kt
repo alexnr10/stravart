@@ -140,6 +140,7 @@ class RouteGenerator(private val engine: RoutingEngine) {
             ascentMeters = ascentOrNull(result.routed.path),
             fidelity = ShapeFidelity.evaluate(result.ideal, result.routed.path.points),
             overlapRatio = overlap,
+            unfollowed = ShapeCoverage.analyse(result.ideal, result.routed.path.points).stretches,
             removedSpurs = result.routed.spurs,
             activity = request.activity,
             engineName = engine.displayName,

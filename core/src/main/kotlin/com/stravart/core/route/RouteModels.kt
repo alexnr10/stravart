@@ -1,5 +1,6 @@
 package com.stravart.core.route
 
+import com.stravart.core.geo.Geo
 import com.stravart.core.geo.LatLon
 import com.stravart.core.routing.ActivityType
 import com.stravart.core.shape.AnchorMode
@@ -18,7 +19,7 @@ data class RouteRequest(
     val anchorMode: AnchorMode = AnchorMode.START,
     /** Écart relatif accepté sur la distance finale (0,03 = 3 %). */
     val toleranceRatio: Double = 0.03,
-    /** Nombre maximal d'appels au moteur de routage. */
+    /** Nombre maximal d'appels au moteur de routage pour ajuster la distance. */
     val maxAttempts: Int = 5,
     /** Espacement visé entre points de passage ; `null` = valeur par défaut de l'activité. */
     val waypointSpacingMeters: Double? = null,
@@ -66,6 +67,12 @@ data class GeneratedRoute(
     val fidelity: Fidelity,
     /** Part du parcours empruntée deux fois, entre 0 et 1. */
     val overlapRatio: Double,
+    /**
+     * Portions de la forme que l'itinéraire n'a pas pu suivre, faute de voie assez
+     * proche — un fleuve, un parc fermé, un grand bâtiment. Les montrer vaut mieux
+     * que de laisser croire à un défaut de calcul.
+     */
+    val unfollowed: List<UnfollowedStretch>,
     /** Nombre d'allers-retours retirés du tracé rendu par le moteur. */
     val removedSpurs: Int,
     val activity: ActivityType,
@@ -77,6 +84,14 @@ data class GeneratedRoute(
 ) {
     val distanceKm: Double get() = distanceMeters / 1000.0
     val start: LatLon get() = points.first()
+
+    /** Part de la forme laissée de côté, entre 0 et 1. */
+    val unfollowedRatio: Double
+        get() {
+            val total = Geo.pathLength(idealShape)
+            if (total <= 0.0) return 0.0
+            return (unfollowed.sumOf { it.lengthMeters } / total).coerceIn(0.0, 1.0)
+        }
 }
 
 /**

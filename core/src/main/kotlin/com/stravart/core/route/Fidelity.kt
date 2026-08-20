@@ -41,8 +41,8 @@ object ShapeFidelity {
         val idealSamples = Geo.resample(ideal, SAMPLES)
         val actualSamples = Geo.resample(actual, SAMPLES)
 
-        val forward = idealSamples.map { Geo.distanceToPath(it, actual, origin) }
-        val backward = actualSamples.map { Geo.distanceToPath(it, ideal, origin) }
+        val forward = ShapeDeviation.perPoint(idealSamples, actual, origin)
+        val backward = ShapeDeviation.perPoint(actualSamples, ideal, origin)
 
         val mean = (forward.average() + backward.average()) / 2.0
         val worst = max(forward.maxOrNull() ?: 0.0, backward.maxOrNull() ?: 0.0)

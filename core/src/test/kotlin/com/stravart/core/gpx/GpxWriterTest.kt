@@ -94,6 +94,7 @@ class GpxWriterTest {
             ascentMeters = 88.0,
             fidelity = Fidelity(42.0, 130.0, 78),
             overlapRatio = 0.04,
+            unfollowed = emptyList(),
             removedSpurs = 1,
             activity = ActivityType.BIKE,
             engineName = "BRouter",

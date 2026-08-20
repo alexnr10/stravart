@@ -55,8 +55,8 @@ object WaypointSampler {
             val to = cumulative[anchors[i + 1]]
             val slots = extras[i]
             for (k in 1..slots) {
-                val d = from + (to - from) * k / (slots + 1)
-                builder.add(interpolate(path, cumulative, d), isAnchor = false)
+                val target = from + (to - from) * k / (slots + 1)
+                builder.add(interpolate(path, cumulative, target), isAnchor = false)
             }
         }
         builder.add(path[anchors.last()], isAnchor = true)
@@ -135,14 +135,20 @@ object WaypointSampler {
         return result
     }
 
-    private fun interpolate(path: List<LatLon>, cumulative: DoubleArray, distance: Double): LatLon {
-        var hi = cumulative.indexOfFirst { it >= distance }
-        if (hi <= 0) hi = 1
-        val lo = hi - 1
-        val segment = cumulative[hi] - cumulative[lo]
-        val t = if (segment <= 0.0) 0.0 else (distance - cumulative[lo]) / segment
-        val a = path[lo]
-        val b = path[hi]
+    /** Point du tracé situé à l'abscisse [target] de la mesure cumulée [scale]. */
+    private fun interpolate(path: List<LatLon>, scale: DoubleArray, target: Double): LatLon {
+        var lo = 0
+        var hi = scale.lastIndex
+        while (lo < hi) {
+            val mid = (lo + hi) / 2
+            if (scale[mid] < target) lo = mid + 1 else hi = mid
+        }
+        if (lo == 0) lo = 1
+        val previous = lo - 1
+        val span = scale[lo] - scale[previous]
+        val t = if (span <= 0.0) 0.0 else (target - scale[previous]) / span
+        val a = path[previous]
+        val b = path[lo]
         return LatLon(a.lat + (b.lat - a.lat) * t, a.lon + (b.lon - a.lon) * t)
     }
 

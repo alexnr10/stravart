@@ -63,6 +63,8 @@
     <string name="result_deviation">Écart moyen à la forme : %1$d m</string>
     <string name="result_attempts">%1$d ajustement(s) de distance</string>
     <string name="result_spurs">%1$d aller(s)-retour(s) d\'impasse supprimé(s)</string>
+    <string name="result_unfollowed">%1$d %% de la forme n\'a pas pu être suivie</string>
+    <string name="result_unfollowed_hint">Les portions en rouge ne longent aucune voie praticable : fleuve, parc fermé, grand bâtiment. Ajouter des points n\'y changerait rien — seuls un autre départ, une autre orientation ou une autre distance le peuvent.</string>
     <string name="result_low_fidelity">Le réseau de rues s\'écarte nettement de la forme ici. Essayez une autre orientation, un autre départ ou une distance différente.</string>
 
     <!-- Zone impossible à boucler -->
@@ -82,4 +84,5 @@
     <string name="back">Retour</string>
     <string name="map_legend_route">Itinéraire</string>
     <string name="map_legend_shape">Forme visée</string>
+    <string name="map_legend_stray">Non suivie</string>
 </resources>

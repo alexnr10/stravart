@@ -37,9 +37,13 @@ class BRouterEngine(
      * Resserrer les points de passage colle le tracé à la forme voulue, et ne coûte
      * pas plus cher au serveur : découper en tronçons courts lui épargne justement
      * les longues recherches de chemin. La borne protège surtout la longueur de
-     * l'URL et laisse de la marge sous les limites du service public.
+     * l'URL ; au-delà de cent cinquante points, un parcours de vingt kilomètres
+     * atteint déjà l'espacement au-delà duquel la maille du réseau limite seule.
+     *
+     * La limite du service public nous étant inconnue, un refus déclenche un nouvel
+     * essai avec moitié moins de points plutôt qu'un échec.
      */
-    override val maxWaypoints = 80
+    override val maxWaypoints = 150
 
     override fun route(waypoints: List<LatLon>, activity: ActivityType): RoutedPath {
         if (waypoints.size < 2) throw RoutingException("Il faut au moins deux points de passage.")

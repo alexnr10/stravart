@@ -17,6 +17,9 @@ val RouteGreen = Color(0xFF0F8C7A)
 /** Orange : la forme visée, en surimpression discrète. */
 val ShapeOrange = Color(0xFFE07A3F)
 
+/** Rouge : les portions de forme qu'aucune voie ne permettait de suivre. */
+val StrayRed = Color(0xFFD1495B)
+
 private val LightColors = lightColorScheme(
     primary = RouteGreen,
     onPrimary = Color.White,
