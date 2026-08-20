@@ -12,7 +12,8 @@ l'exporte en **GPX** pour Garmin Connect ou Strava.
    un dessin fait au doigt.
 2. On règle la distance (1 à 60 km) et l'activité (course ou vélo).
 3. On pose le point de départ : bouton « ma position », recherche d'adresse, ou appui
-   long sur la carte.
+   long sur la carte. La forme s'affiche aussitôt sur la carte, avant tout calcul :
+   inutile d'attendre un aller-retour réseau pour voir qu'elle tombe dans le fleuve.
 4. « Créer le parcours » calcule un itinéraire qui **suit les rues et les chemins**,
    dessine la forme demandée et mesure la bonne distance.
 5. « Partager » ou « Enregistrer » produit un `.gpx` prêt à importer.

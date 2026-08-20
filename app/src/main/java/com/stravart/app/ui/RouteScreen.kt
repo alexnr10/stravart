@@ -150,7 +150,7 @@ fun RouteScreen(
                 RouteMap(
                     start = state.start,
                     route = state.route?.points.orEmpty(),
-                    idealShape = state.route?.idealShape.orEmpty(),
+                    idealShape = state.route?.idealShape ?: state.preview,
                     routeColor = RouteGreen,
                     shapeColor = ShapeOrange,
                     startTitle = stringResource(R.string.start_marker_title),

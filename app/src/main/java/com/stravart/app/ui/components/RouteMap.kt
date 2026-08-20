@@ -122,16 +122,16 @@ fun RouteMap(
         },
     )
 
-    // Cadrer sur le parcours dès qu'il change, sinon simplement centrer sur le départ.
-    LaunchedEffect(route, idealShape, start) {
-        val focus = when {
-            route.size >= 2 -> route
-            idealShape.size >= 2 -> idealShape
-            else -> emptyList()
-        }
-        if (focus.isNotEmpty()) {
-            val box = BoundingBox.fromGeoPoints(focus.toGeoPoints())
-            mapView.post { mapView.zoomToBoundingBox(box, true, MAP_PADDING_PX) }
+    // Cadrer sur le tracé quand son emprise change réellement. Se contenter des
+    // listes comme clés relancerait le cadrage à chaque recomposition, et annulerait
+    // le déplacement que l'utilisateur vient de faire à la main.
+    val hasRoute = route.size >= 2
+    val frame = Frame.of(if (hasRoute) route else idealShape)
+    LaunchedEffect(frame, start) {
+        if (frame != null) {
+            // On anime l'arrivée d'un parcours, mais pas l'aperçu : celui-ci se
+            // recadre à chaque cran du curseur de distance, et l'animation traînerait.
+            mapView.post { mapView.zoomToBoundingBox(frame.toBoundingBox(), hasRoute, MAP_PADDING_PX) }
         } else if (start != null) {
             mapView.post { mapView.controller.animateTo(GeoPoint(start.lat, start.lon)) }
         }
@@ -139,5 +139,30 @@ fun RouteMap(
 }
 
 private const val MAP_PADDING_PX = 80
+
+/** Emprise d'un tracé, comparable par valeur : deux emprises identiques ne recadrent pas. */
+private data class Frame(
+    val minLat: Double,
+    val minLon: Double,
+    val maxLat: Double,
+    val maxLon: Double,
+) {
+    fun toBoundingBox() = BoundingBox(maxLat, maxLon, minLat, minLon)
+
+    companion object {
+        fun of(points: List<LatLon>): Frame? {
+            if (points.size < 2) return null
+            var minLat = Double.MAX_VALUE; var maxLat = -Double.MAX_VALUE
+            var minLon = Double.MAX_VALUE; var maxLon = -Double.MAX_VALUE
+            for (p in points) {
+                if (p.lat < minLat) minLat = p.lat
+                if (p.lat > maxLat) maxLat = p.lat
+                if (p.lon < minLon) minLon = p.lon
+                if (p.lon > maxLon) maxLon = p.lon
+            }
+            return Frame(minLat, minLon, maxLat, maxLon)
+        }
+    }
+}
 
 private fun List<LatLon>.toGeoPoints(): List<GeoPoint> = map { GeoPoint(it.lat, it.lon) }

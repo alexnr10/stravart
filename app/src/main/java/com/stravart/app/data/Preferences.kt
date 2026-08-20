@@ -4,6 +4,8 @@ import android.content.Context
 import com.stravart.core.geo.LatLon
 import com.stravart.core.routing.ActivityType
 import com.stravart.core.shape.AnchorMode
+import com.stravart.core.shape.ShapeCodec
+import com.stravart.core.shape.ShapePath
 
 /**
  * Mémorise les derniers réglages : rouvrir l'application sur la même ville, la
@@ -16,6 +18,13 @@ class Preferences(context: Context) {
     var shapeId: String
         get() = prefs.getString(KEY_SHAPE, null) ?: "heart"
         set(value) = prefs.edit().putString(KEY_SHAPE, value).apply()
+
+    /** Le dessin fait à la main, conservé pour le retrouver à la réouverture. */
+    var customShape: ShapePath?
+        get() = ShapeCodec.decode(prefs.getString(KEY_CUSTOM_SHAPE, null))
+        set(value) = prefs.edit()
+            .putString(KEY_CUSTOM_SHAPE, value?.let { ShapeCodec.encode(it) })
+            .apply()
 
     var distanceKm: Float
         get() = prefs.getFloat(KEY_DISTANCE, 10f)
@@ -63,6 +72,7 @@ class Preferences(context: Context) {
 
     private companion object {
         const val KEY_SHAPE = "shape"
+        const val KEY_CUSTOM_SHAPE = "custom_shape"
         const val KEY_DISTANCE = "distance_km"
         const val KEY_ACTIVITY = "activity"
         const val KEY_ANCHOR = "anchor"

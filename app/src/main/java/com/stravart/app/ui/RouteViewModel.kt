@@ -22,6 +22,7 @@ import com.stravart.core.routing.RoutingEngine
 import com.stravart.core.routing.StraightLineEngine
 import com.stravart.core.shape.AnchorMode
 import com.stravart.core.shape.ShapeLibrary
+import com.stravart.core.shape.ShapeProjector
 import com.stravart.core.shape.ShapePath
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -79,6 +80,28 @@ data class RouteUiState(
         get() = if (shapeId == CUSTOM_SHAPE_ID) customShape else ShapeLibrary.byId(shapeId)?.path
 
     val canGenerate: Boolean get() = start != null && shape != null && !generating
+
+    /**
+     * La forme telle qu'elle se posera sur la carte, avant tout calcul d'itinéraire.
+     *
+     * L'afficher pendant que l'utilisateur règle la distance ou l'orientation lui
+     * évite de lancer un calcul réseau pour découvrir que la forme tombe à côté.
+     */
+    val preview: List<LatLon>
+        get() {
+            val anchor = start ?: return emptyList()
+            val path = shape ?: return emptyList()
+            return runCatching {
+                ShapeProjector.project(
+                    shape = path,
+                    anchor = anchor,
+                    distanceMeters = distanceMeters,
+                    rotationDeg = rotationDeg.toDouble(),
+                    mode = anchorMode,
+                    mirrored = mirrored,
+                )
+            }.getOrDefault(emptyList())
+        }
 }
 
 class RouteViewModel(application: Application) : AndroidViewModel(application) {
@@ -93,16 +116,24 @@ class RouteViewModel(application: Application) : AndroidViewModel(application) {
     private var searchJob: Job? = null
     private var generateJob: Job? = null
 
-    private fun restoreState() = RouteUiState(
-        shapeId = preferences.shapeId,
-        distanceKm = preferences.distanceKm,
-        activity = preferences.activity,
-        anchorMode = preferences.anchorMode,
-        engine = EngineChoice.fromId(preferences.engineId),
-        osrmUrl = preferences.osrmUrl,
-        start = preferences.lastStart,
-        startLabel = preferences.lastStartLabel,
-    )
+    private fun restoreState(): RouteUiState {
+        val customShape = preferences.customShape
+        return RouteUiState(
+            // Si le dessin mémorisé n'est plus lisible, mieux vaut rouvrir sur une
+            // forme du catalogue que sur un choix vide et un bouton grisé.
+            shapeId = preferences.shapeId
+                .takeUnless { it == CUSTOM_SHAPE_ID && customShape == null }
+                ?: ShapeLibrary.default.id,
+            customShape = customShape,
+            distanceKm = preferences.distanceKm,
+            activity = preferences.activity,
+            anchorMode = preferences.anchorMode,
+            engine = EngineChoice.fromId(preferences.engineId),
+            osrmUrl = preferences.osrmUrl,
+            start = preferences.lastStart,
+            startLabel = preferences.lastStartLabel,
+        )
+    }
 
     // --- Réglages du parcours ------------------------------------------------
 
@@ -113,6 +144,7 @@ class RouteViewModel(application: Application) : AndroidViewModel(application) {
 
     fun setCustomShape(shape: ShapePath) {
         preferences.shapeId = CUSTOM_SHAPE_ID
+        preferences.customShape = shape
         _state.update { it.copy(shapeId = CUSTOM_SHAPE_ID, customShape = shape, route = null) }
     }
 

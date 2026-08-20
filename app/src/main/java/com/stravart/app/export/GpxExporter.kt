@@ -1,5 +1,6 @@
 package com.stravart.app.export
 
+import android.content.ClipData
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
@@ -40,6 +41,9 @@ object GpxExporter {
             putExtra(Intent.EXTRA_STREAM, uri)
             putExtra(Intent.EXTRA_SUBJECT, route.name)
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            // Le ClipData est ce qui fait réellement suivre l'autorisation de lecture
+            // jusqu'à l'application choisie dans le sélecteur.
+            clipData = ClipData.newRawUri(route.name, uri)
         }
         return Intent.createChooser(send, route.name)
     }
