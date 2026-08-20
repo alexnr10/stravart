@@ -1,0 +1,38 @@
+name: Build
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Installer le JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Préparer le SDK Android
+        uses: android-actions/setup-android@v3
+
+      - name: Préparer Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      # Les tests du module :core ne demandent ni appareil ni SDK Android :
+      # ils tournent en quelques secondes et couvrent toute l'algorithmique.
+      - name: Tests unitaires
+        run: ./gradlew :core:test
+
+      - name: Compiler l'APK de débogage
+        run: ./gradlew :app:assembleDebug
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: stravart-debug-apk
+          path: app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
