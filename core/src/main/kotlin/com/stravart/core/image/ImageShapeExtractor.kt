@@ -71,12 +71,15 @@ object ImageShapeExtractor {
             throw ImageShapeException("La forme obtenue est trop sommaire pour dessiner un parcours.")
         }
 
-        val smoothed = PathSimplifier.smoothClosed(simplified)
+        // Pas de lissage ici : Ramer-Douglas-Peucker a déjà retiré l'escalier de
+        // pixels, et une moyenne glissante appliquée à ce polygone déjà clairsemé
+        // déplacerait chaque sommet vers ses voisins — elle rabotait les pointes de
+        // l'étoile et les crans de l'éclair, au prix d'un dixième de la forme.
         val path = runCatching {
             // Repère écran : l'axe y descend, la conversion le remet vers le nord.
             // +1 : sur un tracé fermé, le rééchantillonnage ne conserve pas le point
             // de bouclage, qui ferait doublon avec le premier.
-            ShapePath.fromScreen(smoothed, closed = true).resampled(OUTPUT_POINTS + 1)
+            ShapePath.fromScreen(simplified, closed = true).resampled(OUTPUT_POINTS + 1)
         }.getOrElse {
             throw ImageShapeException("La forme obtenue est dégénérée : ${it.message}")
         }

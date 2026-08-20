@@ -51,20 +51,6 @@ object PathSimplifier {
         return points.filterIndexed { index, _ -> keep[index] }
     }
 
-    /** Lissage léger : une moyenne glissante sur trois points, en boucle fermée. */
-    fun smoothClosed(points: List<Pt>): List<Pt> {
-        if (points.size < 5) return points
-        return List(points.size) { index ->
-            val previous = points[(index - 1 + points.size) % points.size]
-            val current = points[index]
-            val next = points[(index + 1) % points.size]
-            Pt(
-                (previous.x + 2 * current.x + next.x) / 4,
-                (previous.y + 2 * current.y + next.y) / 4,
-            )
-        }
-    }
-
     private fun distanceToSegment(p: Pt, a: Pt, b: Pt): Double {
         val vx = b.x - a.x
         val vy = b.y - a.y
