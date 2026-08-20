@@ -37,11 +37,19 @@ data class RouteRequest(
         require(maxOverlapRatio in 0.0..1.0) { "la part d'aller-retour tolérée doit être une fraction" }
     }
 
-    /** Espacement effectif entre points de passage. */
+    /**
+     * Espacement effectif entre points de passage.
+     *
+     * C'est ce qui décide de la fidélité au tracé voulu : entre deux points de
+     * passage, le moteur est libre de préférer la belle avenue à la petite rue qui
+     * longeait la forme, et il ne s'en prive pas. Les resserrer le ramène sur la
+     * ligne — jusqu'à un palier, atteint autour de 120 m, au-delà duquel c'est la
+     * maille du réseau lui-même qui limite et non plus l'échantillonnage.
+     */
     val effectiveSpacingMeters: Double
         get() = waypointSpacingMeters ?: when (activity) {
-            ActivityType.RUN -> 300.0
-            ActivityType.BIKE -> 600.0
+            ActivityType.RUN -> 120.0
+            ActivityType.BIKE -> 200.0
         }
 }
 

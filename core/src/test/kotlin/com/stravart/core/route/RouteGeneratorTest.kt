@@ -70,6 +70,18 @@ class RouteGeneratorTest {
     }
 
     @Test
+    fun `waypoint spacing is tight enough to follow the shape`() {
+        // C'est l'espacement, et non le plafond, qui décide de la fidélité sur les
+        // distances courantes : entre deux points de passage, le moteur est libre.
+        assertEquals(120.0, request().effectiveSpacingMeters, 1e-9)
+        assertEquals(200.0, request().copy(activity = ActivityType.BIKE).effectiveSpacingMeters, 1e-9)
+
+        val engine = InflatingEngine(factor = 1.2, maxWaypoints = 200)
+        RouteGenerator(engine).generate(request(distanceMeters = 10_000.0))
+        assertTrue("seulement ${engine.lastWaypointCount} points", engine.lastWaypointCount >= 60)
+    }
+
+    @Test
     fun `the number of waypoints stays within the engine limit`() {
         val engine = InflatingEngine(factor = 1.2, maxWaypoints = 12)
         RouteGenerator(engine).generate(request(distanceMeters = 30_000.0))

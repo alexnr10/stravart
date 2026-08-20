@@ -61,6 +61,19 @@ L'échantillonnage n'est pas régulier, et c'est important. Un échantillonnage 
 garde donc d'abord les sommets (les changements de direction de plus de 25°), puis
 répartit le budget restant entre eux au prorata des longueurs.
 
+**La densité décide de la fidélité.** Entre deux points de passage, le moteur est
+libre : il préférera la belle avenue à la petite rue qui longeait la forme, et il ne
+s'en prive pas. Les resserrer le ramène sur la ligne. Un point tous les 120 m en
+course à pied (200 m à vélo) réduit d'un quart l'écart moyen à la forme par rapport à
+un point tous les 300 m — et resserrer davantage n'apporte presque plus rien : au-delà
+de ce palier, c'est la maille du réseau qui limite, pas l'échantillonnage. On ne peut
+pas passer plus près qu'à la rue la plus proche.
+
+Cela ne coûte d'ailleurs pas plus cher au serveur : découper en tronçons courts lui
+épargne les longues recherches de chemin. Si une requête est malgré tout refusée,
+`BRouterEngine` réessaie avec deux fois moins de points — moins fidèle, mais un
+parcours plutôt qu'un échec.
+
 ### 3. Retirer les allers-retours
 
 Un point de passage qui tombe au fond d'une impasse oblige le moteur à y entrer puis

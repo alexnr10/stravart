@@ -34,31 +34,53 @@ class BRouterEngine(
     override val snapsToRoads = true
 
     /**
-     * BRouter accepte davantage de points, mais chaque point supplémentaire alourdit
-     * le calcul côté serveur public ; 40 suffisent largement pour dessiner une forme.
+     * Resserrer les points de passage colle le tracé à la forme voulue, et ne coûte
+     * pas plus cher au serveur : découper en tronçons courts lui épargne justement
+     * les longues recherches de chemin. La borne protège surtout la longueur de
+     * l'URL et laisse de la marge sous les limites du service public.
      */
-    override val maxWaypoints = 40
+    override val maxWaypoints = 80
 
     override fun route(waypoints: List<LatLon>, activity: ActivityType): RoutedPath {
         if (waypoints.size < 2) throw RoutingException("Il faut au moins deux points de passage.")
         val profiles = profileOverride?.let { listOf(it) } ?: profilesFor(activity)
 
+        var current = waypoints
         var lastError: Exception? = null
-        for (profile in profiles) {
-            try {
-                return requestRoute(waypoints, profile)
-            } catch (e: Exception) {
-                lastError = e
-                // Inutile d'insister avec un autre profil quand l'échec vient du
-                // tracé lui-même (point isolé, waypoint en pleine forêt) : seule une
-                // erreur du serveur peut venir du profil demandé.
-                if (!looksLikeProfileIssue(e)) break
+
+        for (round in 0..MAX_REDUCTIONS) {
+            for (profile in profiles) {
+                try {
+                    return requestRoute(current, profile)
+                } catch (e: Exception) {
+                    lastError = e
+                    // Inutile d'insister avec un autre profil quand l'échec vient du
+                    // tracé lui-même (point isolé, waypoint en pleine forêt) : seule
+                    // une erreur du serveur peut venir du profil demandé.
+                    if (!looksLikeProfileIssue(e)) break
+                }
             }
+
+            // Dernier recours : réessayer avec deux fois moins de points de passage.
+            // Cela rattrape aussi bien un serveur qui refuse une requête trop longue
+            // qu'un point de passage isolé qui rendait le tracé introuvable. On perd
+            // en fidélité à la forme, mais on rend un parcours.
+            val reduced = halve(current)
+            if (reduced.size == current.size) break
+            current = reduced
         }
+
         throw RoutingException(
             "BRouter : ${lastError?.message ?: "itinéraire introuvable"}",
             lastError,
         )
+    }
+
+    /** Un point de passage sur deux, extrémités conservées. */
+    private fun halve(waypoints: List<LatLon>): List<LatLon> {
+        if (waypoints.size <= MIN_WAYPOINTS_AFTER_REDUCTION) return waypoints
+        val kept = waypoints.filterIndexed { index, _ -> index % 2 == 0 }
+        return if (kept.last() == waypoints.last()) kept else kept + waypoints.last()
     }
 
     private fun looksLikeProfileIssue(e: Exception): Boolean =
@@ -130,6 +152,11 @@ class BRouterEngine(
 
     companion object {
         const val DEFAULT_BASE_URL = "https://brouter.de/brouter"
+
+        /** Nombre de fois où l'on réessaie avec moitié moins de points de passage. */
+        private const val MAX_REDUCTIONS = 2
+
+        private const val MIN_WAYPOINTS_AFTER_REDUCTION = 8
 
         private val JSON = Json { ignoreUnknownKeys = true; isLenient = true }
 

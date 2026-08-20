@@ -28,7 +28,12 @@ class OsrmEngine(
     override val id = "osrm"
     override val displayName = "OSRM"
     override val snapsToRoads = true
-    override val maxWaypoints = 25
+    /**
+     * Les coordonnées voyagent dans le chemin de l'URL, que certains hébergements
+     * tronquent plus tôt qu'une chaîne de requête : on reste plus prudent qu'avec
+     * BRouter.
+     */
+    override val maxWaypoints = 60
 
     override fun route(waypoints: List<LatLon>, activity: ActivityType): RoutedPath {
         if (waypoints.size < 2) throw RoutingException("Il faut au moins deux points de passage.")

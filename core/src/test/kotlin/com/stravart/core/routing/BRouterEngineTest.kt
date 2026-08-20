@@ -94,6 +94,53 @@ class BRouterEngineTest {
     }
 
     @Test
+    fun `a refused request is retried with half the waypoints`() {
+        val dense = (0..19).map { LatLon(48.8566 + it * 0.001, 2.3522) }
+        val sizes = mutableListOf<Int>()
+        val engine = BRouterEngine(http = { url ->
+            val count = url.substringAfter("lonlats=").substringBefore("&").split("%7C").size
+            sizes += count
+            // Le serveur n'accepte pas plus de quinze points de passage.
+            if (count > 15) throw HttpException(400, "too many lonlats") else geoJson
+        })
+
+        engine.route(dense, ActivityType.BIKE)
+
+        assertEquals(20, sizes.first())
+        assertTrue("tailles essayées: $sizes", sizes.last() <= 15)
+        assertTrue("tailles essayées: $sizes", sizes.last() >= 8)
+    }
+
+    @Test
+    fun `reducing the waypoints keeps both ends of the route`() {
+        val dense = (0..19).map { LatLon(48.8566 + it * 0.001, 2.3522) }
+        var reduced: String? = null
+        val engine = BRouterEngine(http = { url ->
+            val lonlats = url.substringAfter("lonlats=").substringBefore("&")
+            if (lonlats.split("%7C").size > 15) throw HttpException(400, "too many lonlats")
+            reduced = lonlats
+            geoJson
+        })
+        engine.route(dense, ActivityType.BIKE)
+
+        val points = reduced!!.split("%7C")
+        assertTrue(points.first().endsWith("48.856600"))
+        assertTrue(points.last().endsWith("48.875600"))
+    }
+
+    @Test
+    fun `a server that always refuses eventually gives up`() {
+        val dense = (0..39).map { LatLon(48.8566 + it * 0.001, 2.3522) }
+        var calls = 0
+        val engine = BRouterEngine(http = { calls++; throw HttpException(500, "nope") })
+
+        val error = runCatching { engine.route(dense, ActivityType.BIKE) }.exceptionOrNull()
+        assertTrue(error is RoutingException)
+        // Trois profils, trois tailles de requête au plus : la boucle est bornée.
+        assertTrue("appels: $calls", calls <= 9)
+    }
+
+    @Test
     fun `profiles are ordered by relevance for each activity`() {
         assertEquals("hiking-beta", BRouterEngine.profilesFor(ActivityType.RUN).first())
         assertEquals("trekking", BRouterEngine.profilesFor(ActivityType.BIKE).first())
