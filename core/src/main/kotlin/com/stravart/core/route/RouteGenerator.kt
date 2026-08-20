@@ -30,12 +30,6 @@ class RouteGenerator(private val engine: RoutingEngine) {
     /** Nombre minimal de points de passage : en dessous, la forme n'est plus lisible. */
     private val minWaypoints = 8
 
-    /**
-     * Amortissement de la correction d'échelle. Une correction purement
-     * proportionnelle peut osciller quand le réseau routier est irrégulier.
-     */
-    private val damping = 0.9
-
     private val minScale = 0.25
     private val maxScale = 4.0
 
@@ -47,7 +41,17 @@ class RouteGenerator(private val engine: RoutingEngine) {
         // Sans collage aux routes, la forme projetée fait déjà pile la bonne longueur.
         val maxAttempts = if (engine.snapsToRoads) request.maxAttempts else 1
 
+        // Le budget de points de passage est arrêté une fois pour toutes, d'après la
+        // distance demandée. Le recalculer à chaque itération ferait varier
+        // l'échantillonnage en même temps que l'échelle, et la distance mesurée
+        // sauterait d'une itération à l'autre au lieu de converger.
+        val budget = waypointCount(target, request)
+
         var scale = 1.0
+        // Encadrement : la plus grande échelle jugée trop courte et la plus petite
+        // jugée trop longue. Dès qu'on tient les deux, on dichotomise.
+        var tooShort: Double? = null
+        var tooLong: Double? = null
         var best: Attempt? = null
         var failure: RoutingException? = null
 
@@ -65,7 +69,7 @@ class RouteGenerator(private val engine: RoutingEngine) {
             // Un moteur qui ne colle pas aux routes peut suivre la forme au point
             // près : inutile de la dégrader en la réduisant à des points de passage.
             val waypoints = if (engine.snapsToRoads) {
-                WaypointSampler.sample(ideal, waypointCount(target * scale, request))
+                WaypointSampler.sample(ideal, budget)
             } else {
                 ideal
             }
@@ -83,10 +87,26 @@ class RouteGenerator(private val engine: RoutingEngine) {
             }
             if (error <= request.toleranceRatio) break
 
-            // Correction proportionnelle : si l'itinéraire fait 20 % de trop, on
-            // rétrécit la forme d'autant.
-            val ratio = (target / routed.distanceMeters).coerceIn(0.5, 2.0)
-            val next = scale * (1.0 + (ratio - 1.0) * damping)
+            if (routed.distanceMeters < target) {
+                tooShort = maxOf(tooShort ?: scale, scale)
+            } else {
+                tooLong = minOf(tooLong ?: scale, scale)
+            }
+
+            val low = tooShort
+            val high = tooLong
+            val next = if (low != null && high != null && high > low) {
+                // Le réseau routier ne répond pas de façon continue : une petite
+                // réduction de la forme peut ne rien changer, puis faire sauter un
+                // pâté de maisons entier. La dichotomie encaisse ces marches, là où
+                // une correction proportionnelle se met à osciller.
+                (low + high) / 2
+            } else {
+                // Tant qu'on n'encadre pas la cible : si l'itinéraire fait 20 % de
+                // trop, on rétrécit la forme d'autant.
+                scale * (target / routed.distanceMeters).coerceIn(0.5, 2.0)
+            }
+
             val clamped = next.coerceIn(minScale, maxScale)
             if (abs(clamped - scale) < 1e-4) break
             scale = clamped

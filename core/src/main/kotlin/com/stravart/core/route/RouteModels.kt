@@ -19,7 +19,7 @@ data class RouteRequest(
     /** Écart relatif accepté sur la distance finale (0,03 = 3 %). */
     val toleranceRatio: Double = 0.03,
     /** Nombre maximal d'appels au moteur de routage. */
-    val maxAttempts: Int = 4,
+    val maxAttempts: Int = 5,
     /** Espacement visé entre points de passage ; `null` = valeur par défaut de l'activité. */
     val waypointSpacingMeters: Double? = null,
     val name: String? = null,
