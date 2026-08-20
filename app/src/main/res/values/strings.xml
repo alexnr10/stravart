@@ -23,6 +23,15 @@
     <string name="draw_instructions">Tracez un trait continu d\'un seul geste. Il sera refermé automatiquement, puis posé sur la carte à la distance demandée.</string>
     <string name="draw_clear">Effacer</string>
     <string name="draw_validate">Utiliser ce dessin</string>
+    <string name="shape_image">Image</string>
+    <string name="image_title">Forme depuis une image</string>
+    <string name="image_instructions">Le contour du sujet principal devient le tracé du parcours. Une silhouette nette sur un fond uni donne les meilleurs résultats ; les trous intérieurs sont ignorés, un parcours étant un trait continu.</string>
+    <string name="image_pick">Autre image</string>
+    <string name="image_use">Utiliser ce contour</string>
+    <string name="image_sensitivity">Sensibilité de la détection</string>
+    <string name="image_invert">Inverser le sujet et le fond</string>
+    <string name="image_coverage">Sujet détecté : %1$d %% de l\'image</string>
+    <string name="image_unreadable">Image illisible.</string>
     <string name="draw_too_short">Le dessin est trop court pour former un parcours.</string>
 
     <!-- Paramètres du parcours -->

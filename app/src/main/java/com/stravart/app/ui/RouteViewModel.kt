@@ -53,6 +53,8 @@ enum class EngineChoice(val id: String, @StringRes val labelRes: Int) {
 data class RouteUiState(
     val shapeId: String = "heart",
     val customShape: ShapePath? = null,
+    /** Vrai quand la forme personnalisée vient d'une image plutôt que d'un dessin. */
+    val customFromImage: Boolean = false,
     val distanceKm: Float = 10f,
     val activity: ActivityType = ActivityType.RUN,
     val rotationDeg: Float = 0f,
@@ -132,6 +134,7 @@ class RouteViewModel(application: Application) : AndroidViewModel(application) {
                 .takeUnless { it == CUSTOM_SHAPE_ID && customShape == null }
                 ?: ShapeLibrary.default.id,
             customShape = customShape,
+            customFromImage = preferences.customFromImage,
             distanceKm = preferences.distanceKm,
             activity = preferences.activity,
             anchorMode = preferences.anchorMode,
@@ -157,10 +160,19 @@ class RouteViewModel(application: Application) : AndroidViewModel(application) {
         updateSettings { it.copy(shapeId = id, route = null) }
     }
 
-    fun setCustomShape(shape: ShapePath) {
+    /** @param fromImage sert seulement à savoir laquelle des deux tuiles surligner. */
+    fun setCustomShape(shape: ShapePath, fromImage: Boolean = false) {
         preferences.shapeId = CUSTOM_SHAPE_ID
         preferences.customShape = shape
-        updateSettings { it.copy(shapeId = CUSTOM_SHAPE_ID, customShape = shape, route = null) }
+        preferences.customFromImage = fromImage
+        updateSettings {
+            it.copy(
+                shapeId = CUSTOM_SHAPE_ID,
+                customShape = shape,
+                customFromImage = fromImage,
+                route = null,
+            )
+        }
     }
 
     fun setDistance(km: Float) {

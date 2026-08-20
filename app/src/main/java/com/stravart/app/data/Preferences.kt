@@ -26,6 +26,11 @@ class Preferences(context: Context) {
             .putString(KEY_CUSTOM_SHAPE, value?.let { ShapeCodec.encode(it) })
             .apply()
 
+    /** Provenance du dessin mémorisé : image importée ou tracé au doigt. */
+    var customFromImage: Boolean
+        get() = prefs.getBoolean(KEY_CUSTOM_FROM_IMAGE, false)
+        set(value) = prefs.edit().putBoolean(KEY_CUSTOM_FROM_IMAGE, value).apply()
+
     var distanceKm: Float
         get() = prefs.getFloat(KEY_DISTANCE, 10f)
         set(value) = prefs.edit().putFloat(KEY_DISTANCE, value).apply()
@@ -73,6 +78,7 @@ class Preferences(context: Context) {
     private companion object {
         const val KEY_SHAPE = "shape"
         const val KEY_CUSTOM_SHAPE = "custom_shape"
+        const val KEY_CUSTOM_FROM_IMAGE = "custom_from_image"
         const val KEY_DISTANCE = "distance_km"
         const val KEY_ACTIVITY = "activity"
         const val KEY_ANCHOR = "anchor"

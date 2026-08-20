@@ -12,6 +12,7 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.stravart.app.ui.DrawShapeScreen
+import com.stravart.app.ui.ImportImageScreen
 import com.stravart.app.ui.RouteActions
 import com.stravart.app.ui.RouteScreen
 import com.stravart.app.ui.RouteViewModel
@@ -33,7 +34,7 @@ class MainActivity : ComponentActivity() {
 @Composable
 private fun StravArtApp(viewModel: RouteViewModel = viewModel()) {
     val state by viewModel.state.collectAsStateWithLifecycle()
-    var drawing by remember { mutableStateOf(false) }
+    var screen by remember { mutableStateOf(Screen.Route) }
 
     val actions = remember(viewModel) {
         RouteActions(
@@ -43,7 +44,8 @@ private fun StravArtApp(viewModel: RouteViewModel = viewModel()) {
             locateMe = viewModel::locateMe,
             locationDenied = viewModel::onLocationPermissionDenied,
             selectShape = viewModel::selectShape,
-            openDrawing = { drawing = true },
+            openDrawing = { screen = Screen.Draw },
+            openImage = { screen = Screen.Image },
             setDistance = viewModel::setDistance,
             setActivity = viewModel::setActivity,
             setRotation = viewModel::setRotation,
@@ -57,16 +59,27 @@ private fun StravArtApp(viewModel: RouteViewModel = viewModel()) {
         )
     }
 
-    if (drawing) {
-        DrawShapeScreen(
-            onCancel = { drawing = false },
+    when (screen) {
+        Screen.Draw -> DrawShapeScreen(
+            onCancel = { screen = Screen.Route },
             onValidate = { shape ->
                 viewModel.setCustomShape(shape)
-                drawing = false
+                screen = Screen.Route
             },
             onError = viewModel::showMessage,
         )
-    } else {
-        RouteScreen(state = state, actions = actions)
+
+        Screen.Image -> ImportImageScreen(
+            onCancel = { screen = Screen.Route },
+            onValidate = { shape ->
+                viewModel.setCustomShape(shape, fromImage = true)
+                screen = Screen.Route
+            },
+        )
+
+        Screen.Route -> RouteScreen(state = state, actions = actions)
     }
 }
+
+/** Les trois écrans de l'application ; la navigation tient en un état. */
+private enum class Screen { Route, Draw, Image }

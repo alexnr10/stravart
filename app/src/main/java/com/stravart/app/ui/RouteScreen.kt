@@ -27,6 +27,7 @@ import androidx.compose.material.icons.filled.DirectionsBike
 import androidx.compose.material.icons.filled.DirectionsRun
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.ExpandLess
+import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material.icons.filled.Place
@@ -243,6 +244,7 @@ data class RouteActions(
     val locationDenied: () -> Unit,
     val selectShape: (String) -> Unit,
     val openDrawing: () -> Unit,
+    val openImage: () -> Unit,
     val setDistance: (Float) -> Unit,
     val setActivity: (ActivityType) -> Unit,
     val setRotation: (Float) -> Unit,
@@ -361,16 +363,29 @@ private fun ShapeSection(state: RouteUiState, actions: RouteActions) {
             modifier = Modifier.horizontalScroll(rememberScrollState()),
             horizontalArrangement = Arrangement.spacedBy(10.dp),
         ) {
+            val drawn = state.customShape.takeIf { !state.customFromImage }
             ShapeTile(
                 label = stringResource(R.string.shape_draw),
-                selected = state.shapeId == CUSTOM_SHAPE_ID,
+                selected = state.shapeId == CUSTOM_SHAPE_ID && !state.customFromImage,
                 onClick = actions.openDrawing,
             ) { color ->
-                val custom = state.customShape
-                if (custom == null) {
+                if (drawn == null) {
                     Icon(Icons.Default.Brush, contentDescription = null, tint = color)
                 } else {
-                    ShapeThumbnail(custom, color, Modifier.fillMaxSize())
+                    ShapeThumbnail(drawn, color, Modifier.fillMaxSize())
+                }
+            }
+
+            val imported = state.customShape.takeIf { state.customFromImage }
+            ShapeTile(
+                label = stringResource(R.string.shape_image),
+                selected = state.shapeId == CUSTOM_SHAPE_ID && state.customFromImage,
+                onClick = actions.openImage,
+            ) { color ->
+                if (imported == null) {
+                    Icon(Icons.Default.Image, contentDescription = null, tint = color)
+                } else {
+                    ShapeThumbnail(imported, color, Modifier.fillMaxSize())
                 }
             }
 

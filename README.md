@@ -8,8 +8,8 @@ l'exporte en **GPX** pour Garmin Connect ou Strava.
 
 ## Ce que fait l'application
 
-1. On choisit une forme — douze formes intégrées (cœur, étoile, éclair, poisson…) ou
-   un dessin fait au doigt.
+1. On choisit une forme — douze formes intégrées (cœur, étoile, éclair, poisson…), un
+   dessin fait au doigt, ou **le contour d'une image** du téléphone.
 2. On règle la distance (1 à 60 km) et l'activité (course ou vélo).
 3. On pose le point de départ : bouton « ma position », recherche d'adresse, ou appui
    long sur la carte. La forme s'affiche aussitôt sur la carte, avant tout calcul :
@@ -30,6 +30,35 @@ Le parcours est une boucle : il revient à son point de départ.
 Le fichier est un GPX 1.1 avec une trace `<trk>` sans horodatage — c'est un parcours à
 suivre, pas une activité déjà réalisée — et l'altitude quand le moteur de routage la
 fournit.
+
+---
+
+## Une forme depuis une image
+
+Le contour du sujet principal d'une photo devient le tracé du parcours. La chaîne
+tient en quatre étapes, toutes dans `core/image/`, donc vérifiables sur la machine de
+développement plutôt que sur un téléphone :
+
+1. **Séparer le sujet du fond.** Une image détourée porte sa réponse dans sa couche
+   alpha. Sinon la méthode d'Otsu cherche le seuil de luminosité qui sépare le mieux
+   les pixels en deux groupes homogènes — et c'est le pourtour de l'image qui dit
+   lequel des deux est le fond, puisque ce qui touche le bord en fait presque toujours
+   partie.
+2. **Longer le bord** de la plus grande tache (algorithme de Moore, main sur le mur).
+   Une seule tache, et son contour extérieur seulement : un parcours est un trait
+   continu, il ne peut ni se dédoubler ni sauter d'un morceau à l'autre. Les trous
+   intérieurs — l'œil d'un visage, l'intérieur d'un anneau — sont donc ignorés.
+3. **Retirer l'escalier de pixels** (Ramer-Douglas-Peucker), sans quoi le tracé
+   compterait des centaines de micro-virages sans rapport avec la forme.
+4. **Rendre un `ShapePath`** identique à ceux du catalogue.
+
+C'est ce dernier point qui compte : le reste de l'application — projection, points de
+passage, routage, nettoyage — ne sait pas d'où vient la forme et n'a pas à le savoir.
+Ajouter cette source n'a demandé **aucune modification du moteur**.
+
+La détection étant affaire de jugement, l'écran montre le contour trouvé par-dessus
+l'image, avec un réglage de sensibilité et une inversion, plutôt que d'imposer un
+résultat qu'on ne découvrirait qu'une fois posé sur la carte.
 
 ---
 
@@ -172,8 +201,8 @@ L'application vise `minSdk 26` (Android 8.0) et `targetSdk 35`.
 ### Organisation
 
 ```
-core/   Kotlin pur, aucune dépendance Android — géométrie, formes, routage, GPX.
-        Testable sur la JVM, donc testé : 65 tests unitaires.
+core/   Kotlin pur, aucune dépendance Android — géométrie, formes, détection de
+        contour, routage, GPX. Testable sur la JVM, donc testé.
 app/    Interface Jetpack Compose, carte osmdroid, localisation, export.
 ```
 
