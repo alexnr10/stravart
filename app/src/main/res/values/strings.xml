@@ -17,6 +17,7 @@
 
     <!-- Forme -->
     <string name="section_shape">Forme</string>
+    <string name="shape_count">%1$d formes</string>
     <string name="shape_draw">Dessiner</string>
     <string name="shape_custom">Mon dessin</string>
     <string name="draw_title">Dessinez votre forme</string>
@@ -36,6 +37,8 @@
 
     <!-- Paramètres du parcours -->
     <string name="section_distance">Distance</string>
+    <string name="distance_min">1 km</string>
+    <string name="distance_max">60 km</string>
     <string name="distance_value">%1$s km</string>
     <string name="section_activity">Activité</string>
     <string name="activity_run">Course à pied</string>
@@ -45,6 +48,7 @@
     <string name="option_rotation">Orientation</string>
     <string name="option_rotation_value">%1$d°</string>
     <string name="option_mirror">Effet miroir</string>
+    <string name="option_mirror_hint">Inverse la forme horizontalement.</string>
     <string name="option_anchor">Position du départ</string>
     <string name="anchor_start">Sur la forme</string>
     <string name="anchor_center">Au centre</string>
@@ -53,15 +57,21 @@
     <string name="engine_osrm">OSRM — serveur personnalisé</string>
     <string name="engine_straight">À vol d\'oiseau — hors ligne</string>
     <string name="option_osrm_url">Adresse du serveur OSRM</string>
+    <string name="option_osrm_hint">Laisser vide pour utiliser le serveur public.</string>
     <string name="engine_straight_warning">Le tracé suivra la forme au mètre près, mais ne tiendra pas compte des rues.</string>
 
     <!-- Génération -->
     <string name="generate">Créer le parcours</string>
     <string name="generate_again">Recalculer</string>
     <string name="generating">Calcul en cours…</string>
+    <string name="generating_button">Création en cours…</string>
 
     <!-- Résultat -->
     <string name="result_title">Parcours prêt</string>
+    <string name="result_screen_title">Parcours généré</string>
+    <string name="result_distance_label">km parcourus</string>
+    <string name="result_fidelity_label">ressemblance</string>
+    <string name="result_ascent_label">m de dénivelé</string>
     <string name="result_distance">Distance</string>
     <string name="result_distance_value">%1$s km</string>
     <string name="result_fidelity">Ressemblance</string>
@@ -99,4 +109,8 @@
     <string name="map_legend_route">Itinéraire</string>
     <string name="map_legend_shape">Forme visée</string>
     <string name="map_legend_stray">Non suivie</string>
+    <string name="map_recenter">Recadrer sur le tracé</string>
+    <string name="map_attribution">© OpenStreetMap</string>
+    <string name="theme_toggle">Changer de thème</string>
+    <string name="panel_handle">Panneau de réglages</string>
 </resources>

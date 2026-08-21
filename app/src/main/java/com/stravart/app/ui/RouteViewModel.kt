@@ -276,6 +276,14 @@ class RouteViewModel(application: Application) : AndroidViewModel(application) {
     fun onLocationPermissionDenied() =
         _state.update { it.copy(locating = false, message = string(R.string.location_permission_needed)) }
 
+    /**
+     * Revient à l'édition depuis l'état résultat.
+     *
+     * Les réglages sont conservés : on revient pour ajuster une orientation ou une
+     * distance, pas pour tout ressaisir.
+     */
+    fun clearRoute() = _state.update { it.copy(route = null) }
+
     // --- Génération ----------------------------------------------------------
 
     fun generate() {
