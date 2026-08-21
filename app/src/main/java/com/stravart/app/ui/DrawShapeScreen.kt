@@ -1,6 +1,8 @@
 package com.stravart.app.ui
 
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -9,7 +11,10 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -20,8 +25,10 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.remember
@@ -31,7 +38,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.stravart.app.R
 import com.stravart.app.ui.components.StrokePreview
@@ -60,6 +69,9 @@ fun DrawShapeScreen(
 ) {
     val points = remember { mutableStateListOf<Offset>() }
     val tooShortMessage = stringResource(R.string.draw_too_short)
+    val density = LocalDensity.current
+    val strokePx = with(density) { 6.dp.toPx() }
+    val startDotPx = with(density) { 18.dp.toPx() }
 
     Scaffold(
         topBar = {
@@ -70,6 +82,9 @@ fun DrawShapeScreen(
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.back))
                     }
                 },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.surface,
+                ),
             )
         },
     ) { padding ->
@@ -77,21 +92,18 @@ fun DrawShapeScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .padding(16.dp),
+                .padding(horizontal = 20.dp, vertical = 16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            Text(
-                text = stringResource(R.string.draw_instructions),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+            InstructionCard("1", stringResource(R.string.draw_instructions))
 
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .aspectRatio(1f)
-                    .clip(RoundedCornerShape(20.dp))
-                    .background(MaterialTheme.colorScheme.surfaceVariant)
+                    .clip(RoundedCornerShape(24.dp))
+                    .background(MaterialTheme.colorScheme.surface)
+                    .border(1.5.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(24.dp))
                     .pointerInput(Unit) {
                         detectDragGestures(
                             onDragStart = { position ->
@@ -102,12 +114,26 @@ fun DrawShapeScreen(
                         )
                     },
             ) {
+                GuideDots(Modifier.fillMaxSize())
                 StrokePreview(
                     points = points,
                     color = MaterialTheme.colorScheme.primary,
+                    strokeWidthPx = strokePx,
+                    fill = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f),
+                    startDotPx = startDotPx,
                     modifier = Modifier.fillMaxSize(),
                 )
             }
+
+            Text(
+                text = if (points.size >= MIN_STROKE_POINTS) {
+                    stringResource(R.string.draw_closed, points.size)
+                } else {
+                    stringResource(R.string.draw_awaiting)
+                },
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -116,7 +142,10 @@ fun DrawShapeScreen(
             ) {
                 OutlinedButton(
                     onClick = { points.clear() },
-                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(18.dp),
+                    modifier = Modifier
+                        .width(112.dp)
+                        .height(56.dp),
                 ) {
                     Text(stringResource(R.string.draw_clear))
                 }
@@ -126,10 +155,74 @@ fun DrawShapeScreen(
                         if (shape == null) onError(tooShortMessage) else onValidate(shape)
                     },
                     enabled = points.size >= MIN_STROKE_POINTS,
-                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(18.dp),
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(56.dp),
                 ) {
-                    Text(stringResource(R.string.draw_validate))
+                    Text(
+                        stringResource(R.string.draw_validate),
+                        style = MaterialTheme.typography.labelLarge,
+                    )
                 }
+            }
+        }
+    }
+}
+
+/** Consigne numérotée, commune aux deux écrans de création de forme. */
+@Composable
+internal fun InstructionCard(step: String, text: String) {
+    Surface(
+        shape = RoundedCornerShape(16.dp),
+        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Row(
+            modifier = Modifier.padding(14.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(22.dp)
+                    .clip(RoundedCornerShape(50))
+                    .background(MaterialTheme.colorScheme.primary),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    text = step,
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onPrimary,
+                )
+            }
+            Text(
+                text = text,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+}
+
+/**
+ * Repères de composition, quatre par quatre.
+ *
+ * Une surface vide ne dit pas où placer sa forme ni quelle taille lui donner ; ces
+ * points donnent l'échelle sans imposer de grille au tracé, qui reste libre.
+ */
+@Composable
+private fun GuideDots(modifier: Modifier = Modifier) {
+    val color = MaterialTheme.colorScheme.outlineVariant
+    Canvas(modifier) {
+        val radius = 1.dp.toPx()
+        for (row in 1..4) {
+            for (col in 1..4) {
+                drawCircle(
+                    color = color,
+                    radius = radius,
+                    center = Offset(size.width * col / 5f, size.height * row / 5f),
+                )
             }
         }
     }

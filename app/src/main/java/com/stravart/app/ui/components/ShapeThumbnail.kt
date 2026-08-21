@@ -44,23 +44,47 @@ fun ShapeThumbnail(
     }
 }
 
-/** Variante prenant des points déjà projetés à l'écran (utilisée par l'écran de dessin). */
+/**
+ * Variante prenant des points déjà projetés à l'écran (utilisée par l'écran de dessin).
+ *
+ * @param fill teinte le dedans du geste. Un parcours étant une boucle, montrer la
+ *   surface enfermée dit mieux qu'un trait ce que la forme deviendra une fois posée.
+ * @param startDotPx marque l'endroit où le doigt s'est posé : c'est là que le
+ *   parcours commencera et finira.
+ */
 @Composable
 fun StrokePreview(
     points: List<Offset>,
     color: Color,
     modifier: Modifier = Modifier,
     strokeWidthPx: Float = 8f,
+    fill: Color? = null,
+    startDotPx: Float = 0f,
 ) {
     Canvas(modifier) {
         if (points.size < 2) return@Canvas
         val path = Path()
         path.moveTo(points.first().x, points.first().y)
         points.drop(1).forEach { path.lineTo(it.x, it.y) }
+
+        if (fill != null) {
+            // Fermé pour le remplissage seulement : le trait, lui, reste ouvert tant
+            // que le geste n'est pas fini, sinon une corde apparaîtrait en cours de
+            // dessin entre le doigt et le point de départ.
+            val closed = Path()
+            closed.addPath(path)
+            closed.close()
+            drawPath(path = closed, color = fill)
+        }
+
         drawPath(
             path = path,
             color = color,
             style = Stroke(width = strokeWidthPx, cap = StrokeCap.Round, join = StrokeJoin.Round),
         )
+
+        if (startDotPx > 0f) {
+            drawCircle(color = color, radius = startDotPx / 2f, center = points.first())
+        }
     }
 }
