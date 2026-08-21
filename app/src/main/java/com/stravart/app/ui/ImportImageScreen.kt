@@ -252,6 +252,9 @@ private fun ContourPreview(
     modifier: Modifier = Modifier,
 ) {
     val image = remember(bitmap) { bitmap.asImageBitmap() }
+    // Lue ici et non dans le Canvas : le bloc de dessin n'est pas un contexte
+    // composable, il ne peut pas consulter le thème lui-même.
+    val contourColor = MaterialTheme.colorScheme.primary
     Canvas(modifier) {
         val scale = min(size.width / image.width, size.height / image.height)
         val drawnWidth = image.width * scale
@@ -279,7 +282,7 @@ private fun ContourPreview(
         path.close()
         drawPath(
             path = path,
-            color = MaterialTheme.colorScheme.primary,
+            color = contourColor,
             style = Stroke(width = 4f, cap = StrokeCap.Round, join = StrokeJoin.Round),
         )
     }
