@@ -28,12 +28,17 @@ object ShapeLibrary {
             ShapePreset("heart", "Cœur", heart()),
             ShapePreset("star", "Étoile", star(branches = 5, innerRatio = 0.42)),
             ShapePreset("circle", "Cercle", polygon(SMOOTH_SAMPLES)),
+            // Un carré a le côté horizontal ; c'est le losange qui a la pointe en
+            // haut. Les deux ne se distinguent que par cet angle de départ.
+            ShapePreset("square", "Carré", polygon(4, startDeg = 45.0)),
             ShapePreset("triangle", "Triangle", polygon(3)),
-            ShapePreset("square", "Carré", polygon(4)),
+            ShapePreset("diamond", "Losange", polygon(4)),
+            ShapePreset("cross", "Croix", cross()),
             ShapePreset("hexagon", "Hexagone", polygon(6)),
-            ShapePreset("lightning", "Éclair", lightning()),
-            ShapePreset("arrow", "Flèche", arrow()),
             ShapePreset("crescent", "Croissant", crescent()),
+            ShapePreset("lightning", "Éclair", lightning()),
+            ShapePreset("wave", "Vague", wave()),
+            ShapePreset("arrow", "Flèche", arrow()),
             ShapePreset("infinity", "Infini", infinity()),
             ShapePreset("drop", "Goutte", drop()),
             ShapePreset("fish", "Poisson", fish()),
@@ -54,11 +59,17 @@ object ShapeLibrary {
         )
     }
 
-    /** Polygone régulier à [sides] côtés, premier sommet en haut. */
-    private fun polygon(sides: Int): ShapePath {
+    /**
+     * Polygone régulier à [sides] côtés.
+     *
+     * [startDeg] place le premier sommet ; 90° le met en haut, ce qui donne un
+     * triangle et un hexagone pointe en l'air comme on les dessine d'ordinaire.
+     */
+    private fun polygon(sides: Int, startDeg: Double = 90.0): ShapePath {
         require(sides >= 3) { "un polygone demande au moins 3 côtés" }
+        val start = Math.toRadians(startDeg)
         val pts = (0 until sides).map { i ->
-            val a = PI / 2 + 2 * PI * i / sides
+            val a = start + 2 * PI * i / sides
             Pt(cos(a), sin(a))
         }
         return ShapePath.of(pts, closed = true)
@@ -153,6 +164,51 @@ object ShapeLibrary {
             x = cos(t) - sin(t).pow(2) / sqrt(2.0),
             y = cos(t) * sin(t),
         )
+    }
+
+    /**
+     * Croix grecque : quatre bras égaux, larges de deux septièmes de l'emprise.
+     *
+     * Les rentrants sont ce qui la caractérise ; plus étroits, elle passerait pour
+     * un carré, plus larges, pour une étoile à quatre branches.
+     */
+    private fun cross(): ShapePath {
+        val a = 12.0 / 42.0
+        val pts = listOf(
+            Pt(-a, 1.0), Pt(a, 1.0), Pt(a, a), Pt(1.0, a),
+            Pt(1.0, -a), Pt(a, -a), Pt(a, -1.0), Pt(-a, -1.0),
+            Pt(-a, -a), Pt(-1.0, -a), Pt(-1.0, a), Pt(-a, a),
+        )
+        return ShapePath.of(pts, closed = true)
+    }
+
+    /**
+     * Vague : une sinusoïde complète parcourue à l'aller, la même décalée vers le
+     * bas au retour.
+     *
+     * Un trait de vague seul est ouvert, or un parcours doit revenir à son point de
+     * départ. Le ruban est donc la seule lecture praticable — et c'est celle du
+     * dessin d'origine, dont la seconde vague estompée est justement le retour.
+     * L'écart entre les deux bords vaut un tiers de l'emprise : sur une boucle de
+     * dix kilomètres, cela met plus d'un kilomètre entre l'aller et le retour, de
+     * quoi emprunter deux rues distinctes plutôt que la même deux fois.
+     */
+    private fun wave(): ShapePath {
+        val amplitude = 0.5
+        val halfThickness = 0.32
+        val steps = SMOOTH_SAMPLES / 2
+        fun crest(x: Double) = amplitude * sin(PI * (x + 1.0))
+
+        val pts = ArrayList<Pt>(steps * 2 + 2)
+        for (i in 0..steps) {
+            val x = -1.0 + 2.0 * i / steps
+            pts += Pt(x, crest(x) + halfThickness)
+        }
+        for (i in steps downTo 0) {
+            val x = -1.0 + 2.0 * i / steps
+            pts += Pt(x, crest(x) - halfThickness)
+        }
+        return ShapePath.of(pts, closed = true)
     }
 
     private inline fun parametric(samples: Int, f: (Double) -> Pt): ShapePath {
