@@ -8,8 +8,14 @@ import com.stravart.app.BuildConfig
 import com.stravart.app.R
 import com.stravart.app.data.Preferences
 import com.stravart.app.location.DeviceLocation
+import com.stravart.core.geo.Geo
 import com.stravart.core.geo.LatLon
 import com.stravart.core.geocode.NominatimGeocoder
+import com.stravart.core.osm.OverpassClient
+import com.stravart.core.placement.GuidedRouteGenerator
+import com.stravart.core.placement.PlacementSearchOptions
+import com.stravart.core.placement.RoadSource
+import com.stravart.core.placement.RoadWay
 import com.stravart.core.geocode.Place
 import com.stravart.core.net.JdkHttpClient
 import com.stravart.core.route.GeneratedRoute
@@ -39,6 +45,30 @@ import java.util.Locale
 /** Identifiant de la forme dessinée à la main, par opposition aux formes du catalogue. */
 const val CUSTOM_SHAPE_ID = "custom"
 
+/**
+ * Jusqu'où l'application a le droit de déplacer la forme pour mieux coller aux rues.
+ *
+ * La recherche d'orientation est le défaut : c'est la moins coûteuse et celle qui
+ * rapporte le plus. Le déplacement du départ est un choix distinct, car il change la
+ * promesse — on ne part plus forcément de chez soi.
+ */
+enum class PlacementMode(@StringRes val labelRes: Int) {
+    NONE(R.string.placement_none),
+    ROTATION(R.string.placement_rotation),
+    AREA(R.string.placement_area),
+}
+
+/** Ce que la recherche de placement a retenu, pour pouvoir le dire et le reprendre. */
+data class PlacementOutcome(
+    val moved: Boolean,
+    val movedMeters: Double,
+    val rotationDeg: Double,
+    val distanceMeters: Double,
+    val start: LatLon,
+    val candidatesRouted: Int,
+    val unavailableReason: String?,
+)
+
 /** Moteurs de routage proposés dans les réglages. */
 enum class EngineChoice(val id: String, @StringRes val labelRes: Int) {
     BROUTER("brouter", R.string.engine_brouter),
@@ -62,6 +92,12 @@ data class RouteUiState(
     val anchorMode: AnchorMode = AnchorMode.START,
     val engine: EngineChoice = EngineChoice.BROUTER,
     val osrmUrl: String = "",
+    val placementMode: PlacementMode = PlacementMode.ROTATION,
+    /** Rayon de recherche d'un meilleur départ, en kilomètres. */
+    val searchRadiusKm: Float = 1f,
+    /** Latitude accordée sur la distance pendant la recherche, en pour cent. */
+    val distanceTolerancePercent: Float = 0f,
+    val placement: PlacementOutcome? = null,
     val start: LatLon? = null,
     val startLabel: String? = null,
     val query: String = "",
@@ -122,8 +158,40 @@ class RouteViewModel(application: Application) : AndroidViewModel(application) {
     private val _state = MutableStateFlow(restoreState())
     val state: StateFlow<RouteUiState> = _state.asStateFlow()
 
+    private val overpass = OverpassClient(http)
+
     private var searchJob: Job? = null
     private var generateJob: Job? = null
+
+    /**
+     * Dernier secteur de rues téléchargé.
+     *
+     * Overpass est un service public partagé : régler une orientation puis relancer
+     * ne doit pas le solliciter à nouveau. On réutilise le secteur tant que le
+     * nouveau départ y tient largement.
+     */
+    private var cachedRoads: CachedRoads? = null
+
+    private data class CachedRoads(
+        val center: LatLon,
+        val radiusMeters: Double,
+        val activity: ActivityType,
+        val ways: List<RoadWay>,
+    )
+
+    private val roadSource = RoadSource { center, radius, activity ->
+        val cache = cachedRoads
+        val reusable = cache != null &&
+            cache.activity == activity &&
+            Geo.distance(cache.center, center) + radius <= cache.radiusMeters
+        if (reusable) {
+            cache.ways
+        } else {
+            overpass.fetch(center, radius, activity).also {
+                cachedRoads = CachedRoads(center, radius, activity, it)
+            }
+        }
+    }
 
     private fun restoreState(): RouteUiState {
         val customShape = preferences.customShape
@@ -284,6 +352,41 @@ class RouteViewModel(application: Application) : AndroidViewModel(application) {
      */
     fun clearRoute() = _state.update { it.copy(route = null) }
 
+    fun setPlacementMode(mode: PlacementMode) = updateSettings { it.copy(placementMode = mode) }
+
+    fun setSearchRadius(km: Float) = updateSettings { it.copy(searchRadiusKm = km) }
+
+    fun setDistanceTolerance(percent: Float) =
+        updateSettings { it.copy(distanceTolerancePercent = percent) }
+
+    /**
+     * Reprend le placement retenu par la recherche comme réglage courant.
+     *
+     * L'adoption est explicite : la recherche propose, elle ne réécrit pas en douce
+     * ce que l'utilisateur a saisi.
+     */
+    fun adoptPlacement() {
+        val found = _state.value.placement ?: return
+        preferences.lastStart = found.start
+        preferences.distanceKm = (found.distanceMeters / 1000.0).toFloat()
+        updateSettings {
+            it.copy(
+                start = found.start,
+                startLabel = null,
+                rotationDeg = found.rotationDeg.toFloat(),
+                distanceKm = (found.distanceMeters / 1000.0).toFloat(),
+                placement = null,
+                route = null,
+            )
+        }
+    }
+
+    fun cancelGeneration() {
+        generateJob?.cancel()
+        generateJob = null
+        _state.update { it.copy(generating = false, progress = null) }
+    }
+
     // --- Génération ----------------------------------------------------------
 
     fun generate() {
@@ -307,6 +410,9 @@ class RouteViewModel(application: Application) : AndroidViewModel(application) {
         )
         val engine = engineFor(current)
 
+        val mode = current.placementMode
+        val options = searchOptions(current)
+
         generateJob?.cancel()
         generateJob = viewModelScope.launch {
             _state.update {
@@ -314,19 +420,33 @@ class RouteViewModel(application: Application) : AndroidViewModel(application) {
                     generating = true,
                     message = null,
                     blocker = null,
+                    placement = null,
                     progress = string(R.string.generating),
                 )
             }
             val outcome = withContext(Dispatchers.IO) {
                 runCatching {
-                    RouteGenerator(engine).generate(request) { progress ->
-                        _state.update { it.copy(progress = progress.message) }
+                    if (mode == PlacementMode.NONE) {
+                        Guided(
+                            RouteGenerator(engine).generate(request) { progress ->
+                                _state.update { it.copy(progress = progress.message) }
+                            },
+                        )
+                    } else {
+                        guided(engine, request, options)
                     }
                 }
             }
             outcome
-                .onSuccess { route ->
-                    _state.update { it.copy(generating = false, progress = null, route = route) }
+                .onSuccess { result ->
+                    _state.update {
+                        it.copy(
+                            generating = false,
+                            progress = null,
+                            route = result.route,
+                            placement = result.placement,
+                        )
+                    }
                 }
                 .onFailure { error ->
                     _state.update {
@@ -334,6 +454,7 @@ class RouteViewModel(application: Application) : AndroidViewModel(application) {
                             generating = false,
                             progress = null,
                             route = null,
+                            placement = null,
                             // Un quartier qui ne boucle pas n'est pas une panne : le
                             // message doit rester lisible et dire quoi faire.
                             blocker = (error as? UnsuitableAreaException)?.message,
@@ -348,6 +469,52 @@ class RouteViewModel(application: Application) : AndroidViewModel(application) {
     fun dismissMessage() = _state.update { it.copy(message = null) }
 
     fun showMessage(text: String) = _state.update { it.copy(message = text) }
+
+    /** Enveloppe commune aux deux chemins : avec ou sans recherche de placement. */
+    private class Guided(val route: GeneratedRoute, val placement: PlacementOutcome? = null)
+
+    private fun searchOptions(state: RouteUiState) = PlacementSearchOptions(
+        radiusMeters = if (state.placementMode == PlacementMode.AREA) {
+            state.searchRadiusKm.toDouble() * 1000.0
+        } else {
+            0.0
+        },
+        distanceTolerance = state.distanceTolerancePercent.toDouble() / 100.0,
+        scaleSteps = if (state.distanceTolerancePercent > 0f) 2 else 0,
+    )
+
+    private fun guided(
+        engine: RoutingEngine,
+        request: RouteRequest,
+        options: PlacementSearchOptions,
+    ): Guided {
+        val result = GuidedRouteGenerator(RouteGenerator(engine), roadSource).generate(
+            request = request,
+            options = options,
+        ) { step, index, total ->
+            _state.update { it.copy(progress = progressText(step, index, total)) }
+        }
+        val chosen = result.placement
+        return Guided(
+            route = result.route,
+            placement = PlacementOutcome(
+                moved = result.improved,
+                movedMeters = Geo.distance(request.start, chosen.anchor),
+                rotationDeg = chosen.rotationDeg,
+                distanceMeters = chosen.distanceMeters,
+                start = chosen.anchor,
+                candidatesRouted = result.candidatesRouted,
+                unavailableReason = result.unavailableReason,
+            ),
+        )
+    }
+
+    private fun progressText(step: GuidedRouteGenerator.Step, index: Int, total: Int): String =
+        when (step) {
+            GuidedRouteGenerator.Step.FETCHING_ROADS -> string(R.string.progress_roads)
+            GuidedRouteGenerator.Step.SCORING -> string(R.string.progress_scoring)
+            GuidedRouteGenerator.Step.ROUTING -> string(R.string.progress_routing, index + 1, total)
+        }
 
     private fun engineFor(state: RouteUiState): RoutingEngine = when (state.engine) {
         EngineChoice.BROUTER -> BRouterEngine(http)

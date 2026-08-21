@@ -9,6 +9,7 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -66,6 +67,7 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
@@ -223,6 +225,8 @@ fun RouteScreen(
                 if (route != null) {
                     ResultPanel(
                         route = route,
+                        placement = state.placement,
+                        onAdoptPlacement = actions.adoptPlacement,
                         onShare = {
                             runCatching { context.startActivity(GpxExporter.shareIntent(context, route)) }
                                 .onFailure { actions.showMessage(saveFailed + (it.message ?: "")) }
@@ -258,6 +262,64 @@ fun RouteScreen(
                 .padding(padding),
         )
     }
+
+    if (state.generating) {
+        GeneratingOverlay(progress = state.progress, onCancel = actions.cancelGeneration)
+    }
+}
+
+/**
+ * L'attente, expliquée.
+ *
+ * La recherche de placement calcule plusieurs itinéraires : l'attente passe de deux
+ * à une dizaine de secondes. Un simple sablier laisserait croire à un blocage, alors
+ * qu'annoncer l'étape en cours rend la durée compréhensible — et laisse la
+ * possibilité d'y renoncer.
+ */
+@Composable
+private fun GeneratingOverlay(progress: String?, onCancel: () -> Unit) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.scrim.copy(alpha = 0.62f))
+            // Absorbe les gestes : sous le voile, plus rien ne doit répondre. Sans
+            // indication, car ce n'est pas un bouton — rien ne se passe au toucher.
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+                onClick = {},
+            ),
+        contentAlignment = Alignment.Center,
+    ) {
+        Surface(
+            shape = RoundedCornerShape(24.dp),
+            color = MaterialTheme.colorScheme.surface,
+            shadowElevation = 6.dp,
+            modifier = Modifier.padding(horizontal = 32.dp),
+        ) {
+            Column(
+                modifier = Modifier.padding(horizontal = 20.dp, vertical = 22.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(14.dp),
+            ) {
+                CircularProgressIndicator(modifier = Modifier.size(52.dp), strokeWidth = 5.dp)
+                Text(
+                    text = stringResource(R.string.generating_title),
+                    style = MaterialTheme.typography.titleMedium,
+                )
+                Text(
+                    text = progress ?: stringResource(R.string.generating),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center,
+                    minLines = 2,
+                )
+                TextButton(onClick = onCancel, modifier = Modifier.height(48.dp)) {
+                    Text(stringResource(R.string.generating_cancel))
+                }
+            }
+        }
+    }
 }
 
 /** Regroupe les actions de l'écran pour garder les composables indépendants du ViewModel. */
@@ -277,7 +339,12 @@ data class RouteActions(
     val setAnchorMode: (AnchorMode) -> Unit,
     val setEngine: (EngineChoice) -> Unit,
     val setOsrmUrl: (String) -> Unit,
+    val setPlacementMode: (PlacementMode) -> Unit,
+    val setSearchRadius: (Float) -> Unit,
+    val setDistanceTolerance: (Float) -> Unit,
+    val adoptPlacement: () -> Unit,
     val generate: () -> Unit,
+    val cancelGeneration: () -> Unit,
     val clearRoute: () -> Unit,
     val showMessage: (String) -> Unit,
     val dismissMessage: () -> Unit,
@@ -371,7 +438,9 @@ private fun MapArea(
 
     Box(modifier) {
         RouteMap(
-            start = state.start,
+            // Quand la recherche a déplacé le départ, c'est celui du tracé qu'il faut
+            // montrer : le marqueur doit désigner l'endroit où l'on part vraiment.
+            start = state.route?.points?.firstOrNull() ?: state.start,
             route = state.route?.points.orEmpty(),
             idealShape = state.route?.idealShape ?: preview,
             unfollowed = state.route?.unfollowed?.map { it.shapePoints }.orEmpty(),
@@ -477,6 +546,7 @@ private fun EditPanel(
     DistanceSection(state, actions)
     RotationSection(state, actions)
     ActivitySection(state, actions)
+    PlacementSection(state, actions)
     AdvancedSection(state, actions)
 
     Spacer(Modifier.height(2.dp))
@@ -880,6 +950,113 @@ private fun ActivityChip(
     }
 }
 
+/**
+ * Jusqu'où l'application a le droit de déplacer la forme pour mieux coller aux rues.
+ *
+ * Ce réglage est au premier plan et non dans les options avancées : il change ce que
+ * l'application fait, pas la façon dont elle le fait. Chercher le départ est un
+ * choix distinct de chercher l'orientation, car il modifie la promesse — on ne part
+ * plus forcément d'où l'on avait dit.
+ */
+@Composable
+private fun PlacementSection(state: RouteUiState, actions: RouteActions) {
+    Column(verticalArrangement = Arrangement.spacedBy(GroupGap)) {
+        SectionHeader(stringResource(R.string.section_placement))
+
+        Column(
+            modifier = Modifier.padding(horizontal = ScreenMargin),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                PlacementMode.entries.forEach { mode ->
+                    AnchorChip(
+                        label = stringResource(mode.labelRes),
+                        selected = state.placementMode == mode,
+                        onClick = { actions.setPlacementMode(mode) },
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+            }
+
+            if (state.placementMode != PlacementMode.NONE) {
+                Text(
+                    text = stringResource(R.string.placement_hint),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+
+                if (state.placementMode == PlacementMode.AREA) {
+                    LabelledSlider(
+                        label = stringResource(R.string.placement_radius),
+                        value = stringResource(
+                            R.string.placement_radius_value,
+                            String.format(Locale.getDefault(), "%.1f", state.searchRadiusKm),
+                        ),
+                        sliderValue = state.searchRadiusKm,
+                        onValueChange = actions.setSearchRadius,
+                        range = 0.3f..3f,
+                        steps = 26,
+                    )
+                }
+
+                LabelledSlider(
+                    label = stringResource(R.string.placement_tolerance),
+                    value = stringResource(
+                        R.string.placement_tolerance_value,
+                        state.distanceTolerancePercent.roundToInt(),
+                    ),
+                    sliderValue = state.distanceTolerancePercent,
+                    onValueChange = actions.setDistanceTolerance,
+                    range = 0f..15f,
+                    steps = 14,
+                )
+                Text(
+                    text = stringResource(R.string.placement_tolerance_hint) + " " +
+                        stringResource(R.string.placement_cost),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun LabelledSlider(
+    label: String,
+    value: String,
+    sliderValue: Float,
+    onValueChange: (Float) -> Unit,
+    range: ClosedFloatingPointRange<Float>,
+    steps: Int,
+) {
+    Column {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                label,
+                style = MaterialTheme.typography.bodySmall,
+                fontWeight = FontWeight.SemiBold,
+            )
+            Text(
+                value,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.primary,
+                fontWeight = FontWeight.Bold,
+            )
+        }
+        Slider(
+            value = sliderValue,
+            onValueChange = onValueChange,
+            valueRange = range,
+            steps = steps,
+        )
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun AdvancedSection(state: RouteUiState, actions: RouteActions) {
@@ -1115,6 +1292,8 @@ private fun PrimaryButton(
 @Composable
 private fun ResultPanel(
     route: GeneratedRoute,
+    placement: PlacementOutcome?,
+    onAdoptPlacement: () -> Unit,
     onShare: () -> Unit,
     onSave: () -> Unit,
     onRegenerate: () -> Unit,
@@ -1125,6 +1304,8 @@ private fun ResultPanel(
         verticalArrangement = Arrangement.spacedBy(GroupGap),
     ) {
         MetricsCard(route)
+
+        placement?.let { PlacementNote(it, onAdoptPlacement) }
 
         Text(
             text = technicalLine(route),
@@ -1221,6 +1402,72 @@ private fun ResultPanel(
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSecondaryContainer,
                 )
+            }
+        }
+    }
+}
+
+/**
+ * Ce que la recherche de placement a changé.
+ *
+ * La suggestion est montrée mais jamais appliquée en douce : les réglages de
+ * l'utilisateur restent ceux qu'il a saisis tant qu'il ne les reprend pas. Sans quoi
+ * il retrouverait au retour un départ et une orientation qu'il n'a pas choisis.
+ */
+@Composable
+private fun PlacementNote(placement: PlacementOutcome, onAdopt: () -> Unit) {
+    placement.unavailableReason?.let { reason ->
+        Text(
+            text = reason,
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        return
+    }
+
+    if (!placement.moved) {
+        Text(
+            text = stringResource(R.string.placement_kept, placement.candidatesRouted),
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        return
+    }
+
+    Surface(
+        shape = RoundedCornerShape(14.dp),
+        color = MaterialTheme.colorScheme.primaryContainer,
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Column(
+            modifier = Modifier.padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            Text(
+                text = stringResource(R.string.placement_moved),
+                style = MaterialTheme.typography.bodySmall,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onPrimaryContainer,
+            )
+            val details = listOfNotNull(
+                if (placement.movedMeters >= 20.0) {
+                    stringResource(R.string.placement_moved_start, placement.movedMeters.roundToInt())
+                } else {
+                    null
+                },
+                stringResource(R.string.placement_moved_rotation, placement.rotationDeg.roundToInt()),
+                stringResource(
+                    R.string.placement_moved_distance,
+                    String.format(Locale.getDefault(), "%.1f", placement.distanceMeters / 1000.0),
+                ),
+            )
+            Text(
+                text = details.joinToString(" · "),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onPrimaryContainer,
+            )
+            TextButton(onClick = onAdopt, modifier = Modifier.height(44.dp)) {
+                Text(stringResource(R.string.placement_adopt))
             }
         }
     }

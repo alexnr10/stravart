@@ -52,6 +52,32 @@
     <string name="option_anchor">Position du départ</string>
     <string name="anchor_start">Sur la forme</string>
     <string name="anchor_center">Au centre</string>
+    <!-- Recherche du meilleur placement -->
+    <string name="section_placement">Placement de la forme</string>
+    <string name="placement_none">Tel quel</string>
+    <string name="placement_rotation">Orientation</string>
+    <string name="placement_area">+ départ</string>
+    <string name="placement_hint">L\'application essaie plusieurs façons de poser la forme sur les rues, puis calcule les plus prometteuses. Elle ne retient la sienne que si elle vaut mieux que la vôtre.</string>
+    <string name="placement_radius">Rayon de recherche</string>
+    <string name="placement_radius_value">%1$s km autour du départ</string>
+    <string name="placement_tolerance">Latitude sur la distance</string>
+    <string name="placement_tolerance_value">± %1$d %%</string>
+    <string name="placement_tolerance_hint">Étirer un peu la forme peut lui faire accrocher une rue mieux orientée.</string>
+    <string name="placement_cost">Compter trois à quatre fois le temps de calcul habituel.</string>
+
+    <string name="progress_roads">Étape 1 sur 3 — lecture des rues alentour</string>
+    <string name="progress_scoring">Étape 2 sur 3 — essai des placements possibles</string>
+    <string name="progress_routing">Étape 3 sur 3 — calcul de l\'itinéraire (%1$d sur %2$d)</string>
+    <string name="generating_title">Calcul du parcours…</string>
+    <string name="generating_cancel">Annuler</string>
+
+    <string name="placement_moved">Placement amélioré</string>
+    <string name="placement_moved_start">départ déplacé de %1$d m</string>
+    <string name="placement_moved_rotation">orientation %1$d°</string>
+    <string name="placement_moved_distance">%1$s km</string>
+    <string name="placement_adopt">Reprendre ces réglages</string>
+    <string name="placement_kept">Votre placement est resté le meilleur des %1$d essayés.</string>
+
     <string name="option_engine">Moteur d\'itinéraire</string>
     <string name="engine_brouter">BRouter — routes et chemins</string>
     <string name="engine_osrm">OSRM — serveur personnalisé</string>
