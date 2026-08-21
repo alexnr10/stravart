@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths>
+    <!-- Les GPX partagés sont écrits dans le cache privé de l'application. -->
+    <cache-path
+        name="gpx"
+        path="gpx/" />
+</paths>

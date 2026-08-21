@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Reprise de la palette Compose, pour l'écran de démarrage et l'icône. -->
+    <color name="braise_surface">#FBF7F3</color>
+    <color name="ic_launcher_background">#3A1002</color>
+</resources>

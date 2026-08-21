@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+      L'apparence réelle est définie en Compose ; ce thème ne sert qu'au démarrage.
+      Le fond reprend néanmoins la couleur « surface » de la palette : sans cela, un
+      éclair blanc précéderait l'application à chaque lancement.
+    -->
+    <style name="Theme.StravArt" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:windowBackground">@color/braise_surface</item>
+    </style>
+</resources>

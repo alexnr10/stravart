@@ -1,0 +1,150 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">StravArt</string>
+    <string name="app_tagline">Un parcours qui dessine ce que vous voulez</string>
+
+    <!-- Départ -->
+    <string name="section_start">Point de départ</string>
+    <string name="start_search_hint">Adresse, ville, lieu…</string>
+    <string name="start_use_my_location">Ma position</string>
+    <string name="start_map_hint">Appui long sur la carte pour déplacer le départ</string>
+    <string name="start_missing">Choisissez d\'abord un point de départ.</string>
+    <string name="start_marker_title">Départ et arrivée</string>
+    <string name="location_permission_needed">Autorisation de localisation refusée.</string>
+    <string name="location_unavailable">Position introuvable. Activez le GPS ou saisissez une adresse.</string>
+    <string name="search_failed">Recherche impossible : %1$s</string>
+    <string name="search_empty">Aucun lieu ne correspond.</string>
+
+    <!-- Forme -->
+    <string name="section_shape">Forme</string>
+    <string name="shape_count">%1$d formes</string>
+    <string name="shape_draw">Dessiner</string>
+    <string name="shape_custom">Mon dessin</string>
+    <string name="draw_title">Dessinez votre forme</string>
+    <string name="draw_instructions">Tracez un trait continu d\'un seul geste. Il sera refermé automatiquement, puis posé sur la carte à la distance demandée.</string>
+    <string name="draw_clear">Effacer</string>
+    <string name="draw_validate">Utiliser ce dessin</string>
+    <string name="draw_closed">Tracé fermé · %1$d points</string>
+    <string name="draw_awaiting">Tracez votre forme dans le cadre.</string>
+    <string name="shape_image">Image</string>
+    <string name="image_title">Forme depuis une image</string>
+    <string name="image_instructions">Le contour du sujet principal devient le tracé du parcours. Une silhouette nette sur un fond uni donne les meilleurs résultats ; les trous intérieurs sont ignorés, un parcours étant un trait continu.</string>
+    <string name="image_pick">Autre image</string>
+    <string name="image_use">Utiliser ce contour</string>
+    <string name="image_sensitivity">Sensibilité de la détection</string>
+    <string name="image_invert">Inverser clair et sombre</string>
+    <string name="image_invert_hint">Si le sujet est plus clair que le fond.</string>
+    <string name="image_sensitivity_low">Contour simple</string>
+    <string name="image_sensitivity_high">Beaucoup de détails</string>
+    <string name="image_coverage">Sujet détecté : %1$d %% de l\'image</string>
+    <string name="image_unreadable">Image illisible.</string>
+    <string name="draw_too_short">Le dessin est trop court pour former un parcours.</string>
+
+    <!-- Paramètres du parcours -->
+    <string name="section_distance">Distance</string>
+    <string name="distance_min">1 km</string>
+    <string name="distance_max">60 km</string>
+    <string name="distance_value">%1$s km</string>
+    <string name="section_activity">Activité</string>
+    <string name="activity_run">Course à pied</string>
+    <string name="activity_bike">Vélo</string>
+
+    <string name="section_advanced">Options avancées</string>
+    <string name="option_rotation">Orientation</string>
+    <string name="option_rotation_value">%1$d°</string>
+    <string name="option_mirror">Effet miroir</string>
+    <string name="option_mirror_hint">Inverse la forme horizontalement.</string>
+    <string name="option_anchor">Position du départ</string>
+    <string name="anchor_start">Sur la forme</string>
+    <string name="anchor_center">Au centre</string>
+    <!-- Recherche du meilleur placement -->
+    <string name="section_placement">Placement de la forme</string>
+    <string name="placement_none">Tel quel</string>
+    <string name="placement_rotation">Orientation</string>
+    <string name="placement_area">+ départ</string>
+    <string name="placement_hint">L\'application essaie plusieurs façons de poser la forme sur les rues, puis calcule les plus prometteuses. Elle ne retient la sienne que si elle vaut mieux que la vôtre.</string>
+    <string name="placement_radius">Rayon de recherche</string>
+    <string name="placement_radius_value">%1$s km autour du départ</string>
+    <string name="placement_radius_ceiling">Maximum %1$s km pour cette distance : la forme occupe déjà le reste du secteur de rues consultable.</string>
+    <string name="placement_no_room">À cette distance, la forme occupe tout le secteur de rues consultable : seule l\'orientation peut encore être cherchée.</string>
+    <string name="placement_too_long">Parcours trop long pour explorer les rues alentour. Réduisez la distance, ou lancez le calcul tel quel.</string>
+    <string name="placement_tolerance">Latitude sur la distance</string>
+    <string name="placement_tolerance_value">± %1$d %%</string>
+    <string name="placement_tolerance_hint">Étirer un peu la forme peut lui faire accrocher une rue mieux orientée.</string>
+    <string name="placement_cost">Compter trois à quatre fois le temps de calcul habituel.</string>
+
+    <string name="progress_roads">Étape 1 sur 3 — lecture des rues alentour</string>
+    <string name="progress_scoring">Étape 2 sur 3 — essai des placements possibles</string>
+    <string name="progress_routing">Étape 3 sur 3 — calcul de l\'itinéraire (%1$d sur %2$d)</string>
+    <string name="generating_title">Calcul du parcours…</string>
+    <string name="generating_cancel">Annuler</string>
+
+    <string name="placement_moved">Placement amélioré</string>
+    <string name="placement_moved_start">départ déplacé de %1$d m</string>
+    <string name="placement_moved_rotation">orientation %1$d°</string>
+    <string name="placement_moved_distance">%1$s km</string>
+    <string name="placement_adopt">Reprendre ces réglages</string>
+    <string name="placement_kept">Votre placement est resté le meilleur des %1$d essayés.</string>
+
+    <string name="option_engine">Moteur d\'itinéraire</string>
+    <string name="engine_brouter">BRouter — routes et chemins</string>
+    <string name="engine_osrm">OSRM — serveur personnalisé</string>
+    <string name="engine_straight">À vol d\'oiseau — hors ligne</string>
+    <string name="option_osrm_url">Adresse du serveur OSRM</string>
+    <string name="option_osrm_hint">Laisser vide pour utiliser le serveur public.</string>
+    <string name="engine_straight_warning">Le tracé suivra la forme au mètre près, mais ne tiendra pas compte des rues.</string>
+
+    <!-- Génération -->
+    <string name="generate">Créer le parcours</string>
+    <string name="generate_again">Recalculer</string>
+    <string name="generating">Calcul en cours…</string>
+    <string name="generating_button">Création en cours…</string>
+
+    <!-- Résultat -->
+    <string name="result_title">Parcours prêt</string>
+    <string name="result_screen_title">Parcours généré</string>
+    <string name="result_distance_label">km parcourus</string>
+    <string name="result_fidelity_label">ressemblance</string>
+    <string name="result_ascent_label">m de dénivelé</string>
+    <string name="result_distance">Distance</string>
+    <string name="result_distance_value">%1$s km</string>
+    <string name="result_fidelity">Ressemblance</string>
+    <string name="result_fidelity_value">%1$d %%</string>
+    <string name="result_ascent">Dénivelé +</string>
+    <string name="result_ascent_value">%1$d m</string>
+    <string name="result_engine">Calculé par %1$s</string>
+    <string name="result_deviation">Écart moyen à la forme : %1$d m</string>
+    <string name="result_attempts">%1$d ajustement(s) de distance</string>
+    <string name="result_profile">profil %1$s</string>
+    <string name="result_waypoints">%1$d points de passage</string>
+    <string name="result_waypoints_reduced">%1$d points de passage sur %2$d demandés</string>
+    <string name="result_relocated">%1$d replacé(s) sur la forme</string>
+    <string name="result_discarded">%1$d écarté(s) faute de voie</string>
+    <string name="result_spurs">%1$d aller(s)-retour(s) d\'impasse supprimé(s)</string>
+    <string name="result_unfollowed">%1$d %% de la forme n\'a pas pu être suivie</string>
+    <string name="result_unfollowed_hint">Les portions en rouge ne longent aucune voie praticable : fleuve, parc fermé, grand bâtiment. Ajouter des points n\'y changerait rien — seuls un autre départ, une autre orientation ou une autre distance le peuvent.</string>
+    <string name="result_low_fidelity">Le réseau de rues s\'écarte nettement de la forme ici. Essayez une autre orientation, un autre départ ou une distance différente.</string>
+
+    <!-- Zone impossible à boucler -->
+    <string name="blocked_title">Impossible de boucler ici</string>
+    <string name="blocked_advice">Aucune forme ni orientation n\'y changera : autour de ce départ, les rues ne permettent pas de revenir sans refaire le même chemin.</string>
+    <string name="blocked_suggestion">Essayez un départ mieux desservi — centre-ville, grand parc, quartier où les rues se croisent — ou déplacez le point de quelques centaines de mètres.</string>
+
+    <!-- Export -->
+    <string name="export_share">Partager le GPX</string>
+    <string name="export_save">Enregistrer le GPX</string>
+    <string name="export_saved">Fichier enregistré.</string>
+    <string name="export_failed">Enregistrement impossible : %1$s</string>
+    <string name="export_hint">Importez ce fichier dans Garmin Connect (Entraînement › Parcours › Importer) ou dans Strava (Mes itinéraires › Importer un GPX).</string>
+
+    <!-- Divers -->
+    <string name="error_title">Échec</string>
+    <string name="back">Retour</string>
+    <string name="map_legend_route">Itinéraire</string>
+    <string name="map_legend_shape">Forme visée</string>
+    <string name="map_legend_stray">Non suivie</string>
+    <string name="map_recenter">Recadrer sur le tracé</string>
+    <string name="map_attribution">© OpenStreetMap</string>
+    <string name="theme_toggle">Changer de thème</string>
+    <string name="panel_handle">Panneau de réglages</string>
+</resources>
