@@ -65,6 +65,9 @@
     <string name="placement_hint">L\'application essaie plusieurs façons de poser la forme sur les rues, puis calcule les plus prometteuses. Elle ne retient la sienne que si elle vaut mieux que la vôtre.</string>
     <string name="placement_radius">Rayon de recherche</string>
     <string name="placement_radius_value">%1$s km autour du départ</string>
+    <string name="placement_radius_ceiling">Maximum %1$s km pour cette distance : la forme occupe déjà le reste du secteur de rues consultable.</string>
+    <string name="placement_no_room">À cette distance, la forme occupe tout le secteur de rues consultable : seule l\'orientation peut encore être cherchée.</string>
+    <string name="placement_too_long">Parcours trop long pour explorer les rues alentour. Réduisez la distance, ou lancez le calcul tel quel.</string>
     <string name="placement_tolerance">Latitude sur la distance</string>
     <string name="placement_tolerance_value">± %1$d %%</string>
     <string name="placement_tolerance_hint">Étirer un peu la forme peut lui faire accrocher une rue mieux orientée.</string>

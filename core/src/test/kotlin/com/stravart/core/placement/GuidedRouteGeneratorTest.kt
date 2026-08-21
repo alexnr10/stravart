@@ -155,15 +155,68 @@ class GuidedRouteGeneratorTest {
         assertEquals(1, guided.candidatesRouted)
     }
 
+    /**
+     * La portée se mesure du départ au point le plus éloigné de la forme posée. Le
+     * carré normalisé mesure 4 de long pour une diagonale de racine de deux : à
+     * 4 km, il porte donc à 1 414 m et non à 1 000 m. C'est cette confusion entre
+     * largeur et diagonale qui rendait un réseau trop court.
+     */
     @Test
-    fun `the network radius covers the whole shape and the search around it`() {
+    fun `the reach of a shape is measured to its far corner`() {
         val square = ShapeLibrary.byId("square")!!.path
-        val options = PlacementSearchOptions(radiusMeters = 500.0, distanceTolerance = 0.10)
-        val radius = GuidedRouteGenerator.networkRadius(
-            RouteRequest(square, start, 4_000.0, ActivityType.RUN), options,
-        )!!
-        // Le carré normalisé mesure 4 de long : à 4 km, il tient dans 1 100 m.
-        assertEquals(500.0 + 1_100.0 + 250.0, radius, 1.0)
+        val request = RouteRequest(square, start, 4_000.0, ActivityType.RUN)
+
+        assertEquals(
+            4_000.0 * Math.sqrt(2.0) / 4.0,
+            GuidedRouteGenerator.shapeReach(request, distanceTolerance = 0.0),
+            1.0,
+        )
+    }
+
+    /**
+     * Le budget restant sert à déplacer le départ. Zéro veut dire « on cherche encore
+     * l'orientation mais plus le départ » ; `null`, que la forme seule ne tient pas.
+     */
+    @Test
+    fun `what is left of the budget decides how far the start may move`() {
+        val square = ShapeLibrary.byId("square")!!.path
+        val short = RouteRequest(square, start, 4_000.0, ActivityType.RUN)
+        val long = RouteRequest(square, start, 40_000.0, ActivityType.RUN)
+
+        val room = GuidedRouteGenerator.affordableSearchRadius(short, 0.0)!!
+        assertEquals(
+            GuidedRouteGenerator.OVERPASS_MAX_RADIUS_METERS -
+                GuidedRouteGenerator.shapeReach(short, 0.0) -
+                GuidedRouteGenerator.NETWORK_MARGIN_METERS,
+            room,
+            1e-6,
+        )
+        assertTrue("une boucle de 4 km doit laisser de la marge", room > 1_000.0)
+        assertNull(GuidedRouteGenerator.affordableSearchRadius(long, 0.0))
+    }
+
+    /**
+     * Un rayon trop ambitieux est ramené à ce que le budget permet, et non refusé :
+     * chercher un départ à cinq cents mètres vaut mieux que ne pas chercher.
+     */
+    @Test
+    fun `an over ambitious radius is trimmed rather than refused`() {
+        val city = TiltedCity(27.0)
+        var asked = 0.0
+        val watching = RoadSource { center, radius, activity ->
+            asked = radius
+            city.source.ways(center, radius, activity)
+        }
+        val guided = GuidedRouteGenerator(RouteGenerator(city.engine), watching).generate(
+            request(km = 10.0),
+            PlacementSearchOptions(radiusMeters = 3_000.0, results = 2),
+        )
+
+        assertNull("la recherche doit avoir eu lieu", guided.unavailableReason)
+        assertTrue(
+            "secteur demandé : $asked m",
+            asked <= GuidedRouteGenerator.OVERPASS_MAX_RADIUS_METERS + 1e-6,
+        )
     }
 
     @Test

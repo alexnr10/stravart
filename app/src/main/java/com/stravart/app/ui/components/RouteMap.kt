@@ -62,10 +62,16 @@ fun RouteMap(
     onLongPress: (LatLon) -> Unit,
     modifier: Modifier = Modifier,
     recenterRequest: Int = 0,
+    /**
+     * Change dès que la place laissée à la carte change. Le cadrage en dépend :
+     * une emprise ajustée à une carte haute déborde d'une carte basse.
+     */
+    layoutKey: Any = Unit,
 ) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     val density = LocalDensity.current.density
+    val framePadding = (MAP_PADDING_DP * density).roundToInt()
     val currentOnLongPress by rememberUpdatedState(onLongPress)
 
     val mapView = remember { MapView(context) }
@@ -177,11 +183,11 @@ fun RouteMap(
     // le déplacement que l'utilisateur vient de faire à la main.
     val hasRoute = route.size >= 2
     val frame = Frame.of(if (hasRoute) route else idealShape)
-    LaunchedEffect(frame, start, recenterRequest) {
+    LaunchedEffect(frame, start, recenterRequest, layoutKey) {
         if (frame != null) {
             // On anime l'arrivée d'un parcours, mais pas l'aperçu : celui-ci se
             // recadre à chaque cran du curseur de distance, et l'animation traînerait.
-            mapView.post { mapView.zoomToBoundingBox(frame.toBoundingBox(), hasRoute, MAP_PADDING_PX) }
+            mapView.post { mapView.zoomToBoundingBox(frame.toBoundingBox(), hasRoute, framePadding) }
         } else if (start != null) {
             mapView.post { mapView.controller.animateTo(GeoPoint(start.lat, start.lon)) }
         }
@@ -243,7 +249,11 @@ private fun startDot(resources: Resources, ring: Int, core: Int, density: Float)
 
 private fun Float.dpPx(density: Float): Float = this * density
 
-private const val MAP_PADDING_PX = 80
+/**
+ * Marge autour du tracé, en dp et non en pixels : quatre-vingts pixels faisaient
+ * vingt-sept dp sur un écran dense et deux fois plus sur un écran ordinaire.
+ */
+private const val MAP_PADDING_DP = 24
 
 /** Emprise d'un tracé, comparable par valeur : deux emprises identiques ne recadrent pas. */
 private data class Frame(

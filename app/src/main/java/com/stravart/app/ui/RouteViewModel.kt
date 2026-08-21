@@ -127,6 +127,35 @@ data class RouteUiState(
     val canGenerate: Boolean get() = start != null && shape != null && !generating
 
     /**
+     * Jusqu'où le départ peut encore être déplacé, en kilomètres.
+     *
+     * La forme occupe déjà l'essentiel du secteur de rues téléchargeable ; ce qui
+     * reste sert à bouger le départ. Le montrer avant le calcul vaut mieux que de
+     * faire attendre dix secondes pour annoncer un refus.
+     */
+    val maxSearchRadiusKm: Float
+        get() {
+            val path = shape ?: return 0f
+            val room = GuidedRouteGenerator.affordableSearchRadius(
+                path, distanceMeters, distanceTolerancePercent.toDouble() / 100.0,
+            ) ?: return 0f
+            return (room / 1000.0).toFloat()
+        }
+
+    /** Faux quand la forme seule dépasse déjà le secteur téléchargeable. */
+    val placementSearchPossible: Boolean
+        get() {
+            val path = shape ?: return false
+            return GuidedRouteGenerator.affordableSearchRadius(
+                path, distanceMeters, distanceTolerancePercent.toDouble() / 100.0,
+            ) != null
+        }
+
+    /** Le rayon effectivement applicable, une fois ramené au budget. */
+    val effectiveSearchRadiusKm: Float
+        get() = searchRadiusKm.coerceAtMost(maxSearchRadiusKm)
+
+    /**
      * La forme telle qu'elle se posera sur la carte, avant tout calcul d'itinéraire.
      *
      * L'afficher pendant que l'utilisateur règle la distance ou l'orientation lui
@@ -475,7 +504,7 @@ class RouteViewModel(application: Application) : AndroidViewModel(application) {
 
     private fun searchOptions(state: RouteUiState) = PlacementSearchOptions(
         radiusMeters = if (state.placementMode == PlacementMode.AREA) {
-            state.searchRadiusKm.toDouble() * 1000.0
+            state.effectiveSearchRadiusKm.toDouble() * 1000.0
         } else {
             0.0
         },

@@ -137,6 +137,15 @@ private val TopBarHeight = 56.dp
  */
 private val MapHeightMin = 200.dp
 
+/** Ce dont la feuille mord sur la carte, comme le veut la maquette. */
+private val SheetOverlap = 16.dp
+
+/** En deçà, déplacer le départ ne change rien au tracé. */
+private const val MIN_SEARCH_RADIUS_KM = 0.3f
+
+/** Au-delà, le nombre de candidats explose sans rien apporter de plus. */
+private const val MAX_SEARCH_RADIUS_KM = 3f
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RouteScreen(
@@ -195,6 +204,16 @@ fun RouteScreen(
             skipHiddenState = true,
         ),
     )
+
+    // La feuille masque le bas de la carte. Poser la carte dans la seule bande
+    // visible plutôt que sous la feuille est ce qui permet au cadrage de montrer la
+    // forme entière : autrement il l'ajuste à une hauteur dont un tiers est caché.
+    val obscured = if (scaffoldState.bottomSheetState.currentValue == SheetValue.Expanded) {
+        sheetMaxHeight
+    } else {
+        peekHeight
+    }
+    val mapBottomInset = (obscured - SheetOverlap).coerceAtLeast(0.dp)
 
     BottomSheetScaffold(
         modifier = modifier,
@@ -257,9 +276,10 @@ fun RouteScreen(
             actions = actions,
             recenterRequest = recenterRequest,
             onRecenter = { recenterRequest++ },
+            layoutKey = mapBottomInset,
             modifier = Modifier
                 .fillMaxSize()
-                .padding(padding),
+                .padding(top = padding.calculateTopPadding(), bottom = mapBottomInset),
         )
     }
 
@@ -419,6 +439,7 @@ private fun MapArea(
     actions: RouteActions,
     recenterRequest: Int,
     onRecenter: () -> Unit,
+    layoutKey: Any,
     modifier: Modifier = Modifier,
 ) {
     val palette = LocalMapColors.current
@@ -448,6 +469,7 @@ private fun MapArea(
             startTitle = stringResource(R.string.start_marker_title),
             onLongPress = actions.setStart,
             recenterRequest = recenterRequest,
+            layoutKey = layoutKey,
             modifier = Modifier.fillMaxSize(),
         )
 
@@ -967,35 +989,69 @@ private fun PlacementSection(state: RouteUiState, actions: RouteActions) {
             modifier = Modifier.padding(horizontal = ScreenMargin),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
+            val maxRadius = state.maxSearchRadiusKm
+            val canMoveStart = maxRadius >= MIN_SEARCH_RADIUS_KM
+
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 PlacementMode.entries.forEach { mode ->
+                    val available = when (mode) {
+                        PlacementMode.NONE -> true
+                        PlacementMode.ROTATION -> state.placementSearchPossible
+                        PlacementMode.AREA -> state.placementSearchPossible && canMoveStart
+                    }
                     AnchorChip(
                         label = stringResource(mode.labelRes),
                         selected = state.placementMode == mode,
+                        enabled = available,
                         onClick = { actions.setPlacementMode(mode) },
                         modifier = Modifier.weight(1f),
                     )
                 }
             }
 
-            if (state.placementMode != PlacementMode.NONE) {
+            // Dire tout de suite ce qui n'est pas possible, plutôt que de faire
+            // attendre un calcul pour annoncer un refus.
+            if (!state.placementSearchPossible) {
+                Text(
+                    text = stringResource(R.string.placement_too_long),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.error,
+                )
+            } else if (!canMoveStart) {
+                Text(
+                    text = stringResource(R.string.placement_no_room),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+
+            if (state.placementMode != PlacementMode.NONE && state.placementSearchPossible) {
                 Text(
                     text = stringResource(R.string.placement_hint),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
 
-                if (state.placementMode == PlacementMode.AREA) {
+                if (state.placementMode == PlacementMode.AREA && canMoveStart) {
+                    val ceiling = maxRadius.coerceAtMost(MAX_SEARCH_RADIUS_KM)
                     LabelledSlider(
                         label = stringResource(R.string.placement_radius),
                         value = stringResource(
                             R.string.placement_radius_value,
-                            String.format(Locale.getDefault(), "%.1f", state.searchRadiusKm),
+                            String.format(Locale.getDefault(), "%.1f", state.effectiveSearchRadiusKm),
                         ),
-                        sliderValue = state.searchRadiusKm,
+                        sliderValue = state.effectiveSearchRadiusKm.coerceIn(MIN_SEARCH_RADIUS_KM, ceiling),
                         onValueChange = actions.setSearchRadius,
-                        range = 0.3f..3f,
-                        steps = 26,
+                        range = MIN_SEARCH_RADIUS_KM..ceiling,
+                        steps = 0,
+                    )
+                    Text(
+                        text = stringResource(
+                            R.string.placement_radius_ceiling,
+                            String.format(Locale.getDefault(), "%.1f", ceiling),
+                        ),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
 
@@ -1197,9 +1253,11 @@ private fun AnchorChip(
     selected: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    enabled: Boolean = true,
 ) {
     Surface(
         onClick = onClick,
+        enabled = enabled,
         shape = RoundedCornerShape(16.dp),
         color = if (selected) MaterialTheme.colorScheme.primaryContainer else Color.Transparent,
         border = BorderStroke(
@@ -1213,10 +1271,10 @@ private fun AnchorChip(
                 text = label,
                 style = MaterialTheme.typography.labelSmall,
                 fontWeight = FontWeight.SemiBold,
-                color = if (selected) {
-                    MaterialTheme.colorScheme.onPrimaryContainer
-                } else {
-                    MaterialTheme.colorScheme.onSurfaceVariant
+                color = when {
+                    !enabled -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.38f)
+                    selected -> MaterialTheme.colorScheme.onPrimaryContainer
+                    else -> MaterialTheme.colorScheme.onSurfaceVariant
                 },
             )
         }

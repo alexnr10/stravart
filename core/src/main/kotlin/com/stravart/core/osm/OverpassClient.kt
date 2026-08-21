@@ -115,11 +115,18 @@ class OverpassClient(
         /**
          * Demi-côté maximal du secteur.
          *
-         * Quatre kilomètres font un carré de huit sur huit — de l'ordre d'un ou deux
-         * arrondissements. Au-delà, le volume rendu devient déraisonnable pour un
-         * téléphone en itinérance autant que pour un service partagé.
+         * Cinq kilomètres et demi font un carré de onze sur onze, soit à peu près
+         * Paris intra-muros et sa première couronne. C'est ce qu'il faut pour qu'une
+         * boucle de dix kilomètres tienne dans le secteur quelle que soit sa forme —
+         * en dessous, la fonctionnalité se refusait à elle-même sur des parcours
+         * parfaitement ordinaires.
+         *
+         * **Estimation, non mesure** : le service n'est pas joignable depuis
+         * l'environnement de développement. Le choix penche du côté optimiste parce
+         * que l'échec est sans gravité — un secteur refusé fait retomber sur le
+         * placement demandé, ce qu'un test vérifie.
          */
-        const val MAX_RADIUS_METERS = 4_000.0
+        const val MAX_RADIUS_METERS = 5_500.0
 
         /**
          * Les voies retenues selon l'activité.

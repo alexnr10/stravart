@@ -5,6 +5,8 @@ import com.stravart.core.route.GeneratedRoute
 import com.stravart.core.route.RouteGenerator
 import com.stravart.core.route.RouteRequest
 import com.stravart.core.routing.ActivityType
+import com.stravart.core.shape.ShapePath
+import kotlin.math.hypot
 
 /** D'où viennent les rues d'un secteur. Séparé pour que les tests s'en passent. */
 fun interface RoadSource {
@@ -50,7 +52,16 @@ class GuidedRouteGenerator(
         options: PlacementSearchOptions = PlacementSearchOptions(),
         onProgress: (Step, Int, Int) -> Unit = { _, _, _ -> },
     ): GuidedRoute {
-        val radius = networkRadius(request, options)
+        // Le rayon demandé est ramené à ce que le budget permet plutôt que refusé :
+        // chercher un départ à cinq cents mètres vaut mieux que ne pas chercher.
+        val affordable = affordableSearchRadius(request, options.distanceTolerance)
+        val effective = if (affordable == null) {
+            options
+        } else {
+            options.copy(radiusMeters = minOf(options.radiusMeters, affordable))
+        }
+        val radius = affordable?.let { shapeReach(request, options.distanceTolerance) + effective.radiusMeters + NETWORK_MARGIN_METERS }
+
         val network = if (radius == null) {
             null
         } else {
@@ -61,9 +72,9 @@ class GuidedRouteGenerator(
 
         if (network == null || network.segmentCount == 0) {
             val reason = if (radius == null) {
-                "Parcours trop long pour explorer les rues alentour : au-delà de " +
-                    "${(OVERPASS_MAX_RADIUS_METERS / 1000).toInt()} km de rayon, le secteur à " +
-                    "télécharger devient déraisonnable."
+                "Parcours trop long pour explorer les rues alentour : la forme couvre à elle " +
+                    "seule plus que le secteur qu'un service de données cartographiques " +
+                    "partagé peut rendre d'un coup."
             } else {
                 "Rues alentour indisponibles ; le parcours a été calculé au placement demandé."
             }
@@ -88,7 +99,7 @@ class GuidedRouteGenerator(
                 mode = request.anchorMode,
                 mirrored = request.mirrored,
             ),
-            options = options,
+            options = effective,
         ).map { it.placement }
 
         // Le placement demandé en tête : s'il fait jeu égal, c'est lui qui l'emporte,
@@ -145,24 +156,57 @@ class GuidedRouteGenerator(
     )
 
     companion object {
-        /** Doit rester en accord avec la limite du client Overpass. */
-        const val OVERPASS_MAX_RADIUS_METERS = 4_000.0
+        /**
+         * Rayon maximal de rues téléchargeables.
+         *
+         * Cinq kilomètres et demi font un carré de onze sur onze, soit à peu près
+         * Paris intra-muros et sa première couronne. C'est ce qui laisse une boucle
+         * de dix kilomètres tenir dans le secteur, quelle que soit sa forme.
+         *
+         * **Cette valeur est une estimation, non une mesure** : le service Overpass
+         * n'est pas joignable depuis l'environnement de développement. Elle est
+         * choisie du côté optimiste parce que l'échec est sans gravité — un secteur
+         * refusé ou trop lent fait simplement retomber sur le placement demandé.
+         */
+        const val OVERPASS_MAX_RADIUS_METERS = 5_500.0
 
         /** De quoi couvrir les rues qui affleurent la forme, sans plus. */
         const val NETWORK_MARGIN_METERS = 250.0
 
         /**
-         * Rayon de rues à télécharger, ou `null` si le secteur nécessaire dépasse ce
-         * qu'un service partagé peut raisonnablement rendre.
+         * Distance maximale entre le départ et un point de la forme posée.
          *
-         * La forme, une fois posée, tient dans un cercle de `distance / longueur
-         * normalisée` : c'est exact et non estimé, la longueur normalisée étant
-         * précisément ce qui fixe l'échelle dans [com.stravart.core.shape.ShapeProjector].
+         * C'est la **diagonale** de l'emprise et non sa largeur : la forme est ancrée
+         * par un point de son contour, si bien que le point opposé peut se trouver
+         * dans le coin le plus éloigné du rectangle englobant. Mesurer la largeur
+         * seule rendait un réseau qui ne couvrait pas toute la forme, et la note se
+         * dégradait en silence à l'extrémité la plus lointaine.
          */
-        fun networkRadius(request: RouteRequest, options: PlacementSearchOptions): Double? {
-            val extent = request.distanceMeters * (1.0 + options.distanceTolerance) / request.shape.length
-            val radius = options.radiusMeters + extent + NETWORK_MARGIN_METERS
-            return if (radius > OVERPASS_MAX_RADIUS_METERS) null else radius
+        fun shapeReach(request: RouteRequest, distanceTolerance: Double): Double =
+            shapeReach(request.shape, request.distanceMeters, distanceTolerance)
+
+        fun shapeReach(shape: ShapePath, distanceMeters: Double, distanceTolerance: Double): Double {
+            val diagonal = hypot(shape.bounds.width, shape.bounds.height)
+            return distanceMeters * (1.0 + distanceTolerance) * diagonal / shape.length
+        }
+
+        /**
+         * Ce qui reste du budget pour déplacer le départ, une fois la forme couverte.
+         *
+         * Zéro signifie « on peut encore chercher l'orientation, mais pas le départ » ;
+         * `null`, que même la forme seule ne tient pas dans le secteur.
+         */
+        fun affordableSearchRadius(request: RouteRequest, distanceTolerance: Double): Double? =
+            affordableSearchRadius(request.shape, request.distanceMeters, distanceTolerance)
+
+        fun affordableSearchRadius(
+            shape: ShapePath,
+            distanceMeters: Double,
+            distanceTolerance: Double,
+        ): Double? {
+            val rest = OVERPASS_MAX_RADIUS_METERS -
+                shapeReach(shape, distanceMeters, distanceTolerance) - NETWORK_MARGIN_METERS
+            return if (rest < 0.0) null else rest
         }
     }
 }
