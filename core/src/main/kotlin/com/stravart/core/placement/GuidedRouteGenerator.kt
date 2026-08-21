@@ -93,7 +93,10 @@ class GuidedRouteGenerator(
 
         // Le placement demandé en tête : s'il fait jeu égal, c'est lui qui l'emporte,
         // et l'on ne propose pas de bouger pour rien.
-        val runOff = listOf(asked(request)) + suggestions
+        // La recherche peut proposer exactement le placement demandé ; le router deux
+        // fois coûterait une requête pour rien.
+        val askedPlacement = asked(request)
+        val runOff = listOf(askedPlacement) + suggestions.filter { it != askedPlacement }
         var best: Pair<Placement, GeneratedRoute>? = null
         var askedRoute: GeneratedRoute? = null
         var routed = 0
@@ -121,7 +124,10 @@ class GuidedRouteGenerator(
             route = winner.second,
             placement = winner.first,
             asked = askedRoute,
-            improved = askedRoute != null && winner.second !== askedRoute,
+            // Se prononcer sur le placement et non sur le tracé : quand le placement
+            // demandé ne boucle pas du tout, il n'y a pas de tracé auquel comparer,
+            // et pourtant la recherche a bel et bien trouvé autre chose.
+            improved = winner.first != askedPlacement,
             candidatesRouted = routed,
         )
     }

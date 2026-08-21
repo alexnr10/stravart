@@ -182,6 +182,35 @@ class GuidedRouteGeneratorTest {
         }
     }
 
+    /**
+     * Quand le placement demandé ne boucle pas du tout, il n'y a pas de tracé auquel
+     * comparer — et pourtant la recherche a bel et bien trouvé autre chose. Se
+     * prononcer sur le tracé plutôt que sur le placement annoncerait ici « votre
+     * placement est resté le meilleur », ce qui serait faux.
+     */
+    @Test
+    fun `a move is reported even when the asked placement produced nothing`() {
+        val city = TiltedCity(27.0)
+        // Le placement demandé est toujours routé en premier : refuser ce premier
+        // appel modélise « ce placement-là ne boucle pas » sans dépendre de la
+        // géométrie, tous les candidats partant ici du même point.
+        var first = true
+        val picky = object : RoutingEngine by city.engine {
+            override fun route(waypoints: List<LatLon>, activity: ActivityType): RoutedPath {
+                if (first) {
+                    first = false
+                    throw RoutingException("ce placement ne boucle pas")
+                }
+                return city.engine.route(waypoints, activity)
+            }
+        }
+        val guided = GuidedRouteGenerator(RouteGenerator(picky), city.source)
+            .generate(request(), PlacementSearchOptions(results = 3))
+
+        assertNull("aucun tracé au placement demandé", guided.asked)
+        assertTrue("le déplacement doit être annoncé", guided.improved)
+    }
+
     @Test
     fun `nothing is reported as improved when the asked placement wins`() {
         val city = TiltedCity(0.0)
