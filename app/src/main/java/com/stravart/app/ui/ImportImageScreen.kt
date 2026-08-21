@@ -55,7 +55,6 @@ import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import com.stravart.app.R
 import com.stravart.app.image.BitmapRaster
-import com.stravart.app.ui.theme.ShapeOrange
 import com.stravart.core.image.ExtractedShape
 import com.stravart.core.image.ImageShapeExtractor
 import com.stravart.core.shape.ShapePath
@@ -280,7 +279,7 @@ private fun ContourPreview(
         path.close()
         drawPath(
             path = path,
-            color = ShapeOrange,
+            color = MaterialTheme.colorScheme.primary,
             style = Stroke(width = 4f, cap = StrokeCap.Round, join = StrokeJoin.Round),
         )
     }

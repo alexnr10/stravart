@@ -71,9 +71,7 @@ import com.stravart.app.R
 import com.stravart.app.export.GpxExporter
 import com.stravart.app.ui.components.RouteMap
 import com.stravart.app.ui.components.ShapeThumbnail
-import com.stravart.app.ui.theme.RouteGreen
-import com.stravart.app.ui.theme.ShapeOrange
-import com.stravart.app.ui.theme.StrayRed
+import com.stravart.app.ui.theme.LocalMapColors
 import com.stravart.core.geo.LatLon
 import com.stravart.core.route.GeneratedRoute
 import com.stravart.core.routing.ActivityType
@@ -93,6 +91,7 @@ fun RouteScreen(
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
+    val mapColors = LocalMapColors.current
     val snackbarHostState = remember { SnackbarHostState() }
 
     LaunchedEffect(state.message) {
@@ -155,9 +154,9 @@ fun RouteScreen(
                     route = state.route?.points.orEmpty(),
                     idealShape = state.route?.idealShape ?: state.preview,
                     unfollowed = state.route?.unfollowed?.map { it.shapePoints }.orEmpty(),
-                    routeColor = RouteGreen,
-                    shapeColor = ShapeOrange,
-                    strayColor = StrayRed,
+                    routeColor = mapColors.route,
+                    shapeColor = mapColors.targetShape,
+                    strayColor = mapColors.unfollowed,
                     startTitle = stringResource(R.string.start_marker_title),
                     onLongPress = actions.setStart,
                     modifier = Modifier.fillMaxSize(),
@@ -264,10 +263,11 @@ private fun MapOverlay(state: RouteUiState, modifier: Modifier = Modifier) {
         modifier = modifier.padding(12.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        LegendChip(stringResource(R.string.map_legend_route), RouteGreen)
-        LegendChip(stringResource(R.string.map_legend_shape), ShapeOrange)
+        val mapColors = LocalMapColors.current
+        LegendChip(stringResource(R.string.map_legend_route), mapColors.route)
+        LegendChip(stringResource(R.string.map_legend_shape), mapColors.targetShape)
         if (route.unfollowed.isNotEmpty()) {
-            LegendChip(stringResource(R.string.map_legend_stray), StrayRed)
+            LegendChip(stringResource(R.string.map_legend_stray), mapColors.unfollowed)
         }
     }
 }
@@ -679,7 +679,7 @@ private fun ResultCard(
                             Modifier
                                 .size(10.dp)
                                 .clip(RoundedCornerShape(50))
-                                .background(StrayRed),
+                                .background(LocalMapColors.current.unfollowed),
                         )
                         Text(
                             text = stringResource(
