@@ -122,13 +122,18 @@ private val GroupGap = 10.dp
 private val MapHeightEditing = 336.dp
 private val MapHeightResult = 326.dp
 
+/** Hauteur de la barre de titre, à déduire de la place laissée à la carte. */
+private val TopBarHeight = 56.dp
+
 /**
  * Hauteur minimale de la carte, panneau grand ouvert.
  *
- * En dessous, la carte cesse de renseigner : on ne distingue plus où tombe la forme,
- * et le panneau n'est plus une feuille posée sur un fond mais un écran à part entière.
+ * La maquette descendait à 120 dp. À l'usage c'est trop peu : on n'y voit plus assez
+ * de la forme pour juger d'une rotation, ce qui est justement le réglage qu'on vient
+ * chercher en ouvrant le panneau. 200 dp laissent la forme entière visible aux
+ * distances courantes.
  */
-private val MapHeightMin = 120.dp
+private val MapHeightMin = 200.dp
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -176,8 +181,11 @@ fun RouteScreen(
     // La feuille est ancrée par sa hauteur de repos, celle qui laisse à la carte la
     // place voulue. Sur un écran court le calcul deviendrait négatif : on lui laisse
     // alors la moitié de la hauteur disponible, faute de mieux.
-    val peekHeight = (screenHeight - mapHeight).coerceAtLeast(screenHeight / 2)
-    val sheetMaxHeight = (screenHeight - MapHeightMin).coerceAtLeast(peekHeight)
+    // Les hauteurs de la maquette décrivent la carte, or la feuille se mesure depuis
+    // le bas de l'écran : la barre de titre est à déduire, sans quoi la carte est
+    // partout plus courte que voulu.
+    val peekHeight = (screenHeight - TopBarHeight - mapHeight).coerceAtLeast(screenHeight / 3)
+    val sheetMaxHeight = (screenHeight - TopBarHeight - MapHeightMin).coerceAtLeast(peekHeight)
 
     val scaffoldState = rememberBottomSheetScaffoldState(
         bottomSheetState = rememberStandardBottomSheetState(
@@ -467,6 +475,7 @@ private fun EditPanel(
     StartSection(state, actions, onRequestLocation)
     ShapeSection(state, actions)
     DistanceSection(state, actions)
+    RotationSection(state, actions)
     ActivitySection(state, actions)
     AdvancedSection(state, actions)
 
@@ -772,6 +781,33 @@ private fun DistanceSection(state: RouteUiState, actions: RouteActions) {
     }
 }
 
+/**
+ * L'orientation est remontée hors des options avancées.
+ *
+ * C'est le seul réglage dont l'effet ne se lit que sur la carte : tourner la forme
+ * sans la voir revient à régler à l'aveugle. Sa place est donc auprès de la distance,
+ * là où la carte reste entièrement dégagée.
+ */
+@Composable
+private fun RotationSection(state: RouteUiState, actions: RouteActions) {
+    Column {
+        SectionHeader(stringResource(R.string.option_rotation)) {
+            Text(
+                text = stringResource(R.string.option_rotation_value, state.rotationDeg.roundToInt()),
+                style = MaterialTheme.typography.headlineSmall,
+                color = MaterialTheme.colorScheme.primary,
+            )
+        }
+        Slider(
+            value = state.rotationDeg,
+            onValueChange = actions.setRotation,
+            valueRange = 0f..350f,
+            steps = 34,
+            modifier = Modifier.padding(horizontal = ScreenMargin),
+        )
+    }
+}
+
 @Composable
 private fun ActivitySection(state: RouteUiState, actions: RouteActions) {
     Column(verticalArrangement = Arrangement.spacedBy(GroupGap)) {
@@ -883,32 +919,6 @@ private fun AdvancedSection(state: RouteUiState, actions: RouteActions) {
                     .padding(horizontal = ScreenMargin),
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.Bottom,
-                    ) {
-                        Text(
-                            stringResource(R.string.option_rotation),
-                            style = MaterialTheme.typography.bodySmall,
-                            fontWeight = FontWeight.SemiBold,
-                        )
-                        Text(
-                            stringResource(R.string.option_rotation_value, state.rotationDeg.roundToInt()),
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.ExtraBold,
-                            color = MaterialTheme.colorScheme.primary,
-                        )
-                    }
-                    Slider(
-                        value = state.rotationDeg,
-                        onValueChange = actions.setRotation,
-                        valueRange = 0f..350f,
-                        steps = 34,
-                    )
-
-                    OptionDivider()
-
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
